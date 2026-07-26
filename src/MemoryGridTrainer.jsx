@@ -16,6 +16,7 @@ import {
   Plus,
   HeartCrack,
   TrendingUp,
+  Layers,
 } from "lucide-react";
 
 const C = {
@@ -52,30 +53,35 @@ const TONE_BORDER = {
 // Pattern memory: 6x6 board, 10 cards to find.
 // Sequence memory: 3x3 board, 10 steps, repeats allowed.
 // Progressive sequence: 3x3 board, starts at 3 steps, +1 each round, repeats always on.
+// Queue: 3x3 board, patterns of 4 cells, 3 patterns in flight, reproduce the oldest each round.
 const DEFAULT_CONFIG = {
   pattern: { boardSize: 6, level: 10, displayTime: 2 },
   sequence: { boardSize: 3, level: 10, allowRepeat: true, displayTime: 1 },
   progressive: { boardSize: 3, startLength: 3, increment: 1, displayTime: 1 },
+  queue: { boardSize: 3, level: 4, queueSize: 3, displayTime: 2 },
 };
 
 const MODE_OPTIONS = [
-  { key: "pattern", icon: <Grid3x3 size={16} />, label: "Pattern" },
-  { key: "sequence", icon: <ListOrdered size={16} />, label: "Sequence" },
-  { key: "progressive", icon: <TrendingUp size={16} />, label: "Progressive" },
+  { key: "pattern", icon: <Grid3x3 size={20} />, label: "Pattern" },
+  { key: "sequence", icon: <ListOrdered size={20} />, label: "Sequence" },
+  { key: "progressive", icon: <TrendingUp size={20} />, label: "Progressive" },
+  { key: "queue", icon: <Layers size={20} />, label: "Queue" },
 ];
 
 const MODE_BLURB = {
   pattern: "Memorize the highlighted cells, then tap them all.",
   sequence: "Memorize the order, then repeat it back.",
   progressive: "The sequence grows every round — how far can you go?",
+  queue: "A queue of patterns keeps growing — reproduce the oldest one while a new one joins the back.",
 };
 
 const SUCCESS_HOLD = 480; // how long the success glow lingers before reset
 const RESET_ANIM = 700; // how long the flip-down reset wave takes
 
 function Stepper({ icon, value, onChange, min, max, step = 1, format }) {
-  const dec = () => onChange(Math.max(min, +(value - step).toFixed(2)));
-  const inc = () => onChange(Math.min(max, +(value + step).toFixed(2)));
+  const s = typeof step === "function" ? step(value) : step;
+  const dec = () => onChange(Math.max(min, +(value - s).toFixed(2)));
+  const inc = () => onChange(Math.min(max, +(value + s).toFixed(2)));
   return (
     <div
       style={{
@@ -219,33 +225,30 @@ function ToggleRow({ icon, checked, onChange }) {
   );
 }
 
-function ModeSwitch({ mode, onChange, options }) {
+function ModeCarousel({ mode, onChange, options }) {
+  const cardRefs = useRef({});
+  useEffect(() => {
+    const el = cardRefs.current[mode];
+    if (el) el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [mode]);
+
   return (
-    <div style={{ display: "flex", gap: 4, background: C.bg, borderRadius: 16, padding: 4 }}>
+    <div className="mode-carousel">
       {options.map((o) => (
         <button
           key={o.key}
+          ref={(el) => {
+            cardRefs.current[o.key] = el;
+          }}
           onClick={() => onChange(o.key)}
+          className="mode-card"
           style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 3,
-            padding: "9px 2px",
-            borderRadius: 12,
-            border: "none",
-            background: mode === o.key ? C.accent : "transparent",
+            background: mode === o.key ? C.accent : C.bg,
             color: mode === o.key ? "#fff" : C.mutedInk,
-            fontWeight: 600,
-            fontSize: 11,
-            cursor: "pointer",
-            transition: "background 150ms ease, color 150ms ease",
           }}
         >
           {o.icon}
-          {o.label}
+          <span style={{ fontWeight: 700, fontSize: 12 }}>{o.label}</span>
         </button>
       ))}
     </div>
@@ -342,7 +345,7 @@ function Card({ faceUp, tone, content, badge, clickable, onClick, transitionDela
 }
 
 export default function MemoryGridTrainer() {
-  const [mode, setMode] = useState("pattern"); // 'pattern' | 'sequence' | 'progressive'
+  const [mode, setMode] = useState("pattern"); // 'pattern' | 'sequence' | 'progressive' | 'queue'
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -355,6 +358,8 @@ export default function MemoryGridTrainer() {
   const [revealedSteps, setRevealedSteps] = useState(0);
   const [wrongCell, setWrongCell] = useState(null);
   const [flashCorrect, setFlashCorrect] = useState(null);
+  const [queueList, setQueueList] = useState([]); // queue mode: patterns waiting behind the current target
+  const [revealPatterns, setRevealPatterns] = useState([]); // queue mode: pattern(s) currently rolling in memorize phase
 
   const [hearts, setHearts] = useState(3);
   const [strikes, setStrikes] = useState(0);
@@ -374,16 +379,17 @@ export default function MemoryGridTrainer() {
 
   const isProgressive = mode === "progressive";
   const isSequenceLike = mode === "sequence" || isProgressive;
+  const isPatternLike = mode === "pattern" || mode === "queue";
 
   const modeConfig = config[mode];
   const { boardSize, displayTime } = modeConfig;
   const level = modeConfig.level;
   const allowRepeat = mode === "sequence" ? modeConfig.allowRepeat : isProgressive;
   const total = boardSize * boardSize;
-  // Pattern: cap at half the board so the last few cells aren't a trivial deduction.
+  // Pattern/Queue: cap at half the board so the last few cells aren't a trivial deduction.
   // Sequence: repeats make length effectively unbounded, so just cap at a generous 60.
   const maxLevel =
-    mode === "pattern" ? Math.floor(total / 2) : allowRepeat ? 60 : Math.min(total - 1, 60);
+    isPatternLike ? Math.floor(total / 2) : allowRepeat ? 60 : Math.min(total - 1, 60);
 
   const updateModeConfig = (patch) =>
     setConfig((c) => ({ ...c, [mode]: { ...c[mode], ...patch } }));
@@ -395,7 +401,7 @@ export default function MemoryGridTrainer() {
         return { ...c, [mode]: { ...mc, boardSize: v } };
       }
       const t = v * v;
-      const maxL = mode === "pattern" ? Math.floor(t / 2) : mc.allowRepeat ? 60 : Math.min(t - 1, 60);
+      const maxL = mode === "pattern" || mode === "queue" ? Math.floor(t / 2) : mc.allowRepeat ? 60 : Math.min(t - 1, 60);
       return { ...c, [mode]: { ...mc, boardSize: v, level: Math.min(mc.level, maxL) } };
     });
 
@@ -407,14 +413,16 @@ export default function MemoryGridTrainer() {
       return { ...c, [mode]: { ...mc, allowRepeat: val, level: Math.min(mc.level, maxL) } };
     });
 
-  const generatePattern = () => {
+  const generatePatternOfSize = (size) => {
     const idxs = Array.from({ length: total }, (_, i) => i);
     for (let i = idxs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
     }
-    return new Set(idxs.slice(0, level));
+    return new Set(idxs.slice(0, size));
   };
+
+  const generatePattern = () => generatePatternOfSize(level);
 
   const generateSequence = () => {
     if (allowRepeat) {
@@ -449,6 +457,42 @@ export default function MemoryGridTrainer() {
       setPhase("memorize");
       setBarKey((k) => k + 1);
       addTimer(() => setPhase("recall"), displayTime * 1000);
+    } else if (mode === "queue") {
+      setFound(new Set());
+      setPhase("memorize");
+      setActiveStepPos(-1);
+      setRevealedSteps(0);
+      const stepDur = displayTime * 1000;
+      const gap = 200;
+
+      if (isFirstRound) {
+        const qSize = modeConfig.queueSize;
+        const initialQueue = Array.from({ length: qSize }, () => generatePatternOfSize(level));
+        setQueueList(initialQueue);
+        setPattern(initialQueue[0]);
+        setRevealPatterns(initialQueue);
+        initialQueue.forEach((_, idx) => {
+          const onAt = idx * (stepDur + gap);
+          addTimer(() => setActiveStepPos(idx), onAt);
+          addTimer(() => {
+            setActiveStepPos(-1);
+            setRevealedSteps(idx + 1);
+          }, onAt + stepDur);
+        });
+        addTimer(() => setPhase("recall"), qSize * (stepDur + gap));
+      } else {
+        const newPattern = generatePatternOfSize(level);
+        const nextQueue = [...queueList.slice(1), newPattern];
+        setQueueList(nextQueue);
+        setPattern(nextQueue[0]);
+        setRevealPatterns([newPattern]);
+        addTimer(() => setActiveStepPos(0), 0);
+        addTimer(() => {
+          setActiveStepPos(-1);
+          setRevealedSteps(1);
+        }, stepDur);
+        addTimer(() => setPhase("recall"), stepDur + gap);
+      }
     } else {
       const seq = isProgressive
         ? isFirstRound
@@ -503,7 +547,7 @@ export default function MemoryGridTrainer() {
   const handleCellClick = (i) => {
     if (phase !== "recall") return;
 
-    if (mode === "pattern") {
+    if (isPatternLike) {
       if (found.has(i)) return;
       if (pattern.has(i)) {
         const nf = new Set(found);
@@ -549,6 +593,8 @@ export default function MemoryGridTrainer() {
     setRevealedSteps(0);
     setWrongCell(null);
     setFlashCorrect(null);
+    setQueueList([]);
+    setRevealPatterns([]);
   };
 
   const applySettingsAndRestart = () => {
@@ -569,12 +615,16 @@ export default function MemoryGridTrainer() {
       faceUp = true;
       tone = "highlight";
     }
+    if (phase === "memorize" && mode === "queue" && activeStepPos >= 0 && revealPatterns[activeStepPos]?.has(i)) {
+      faceUp = true;
+      tone = "highlight";
+    }
     if (phase === "memorize" && isSequenceLike && activeStepPos >= 0 && sequence[activeStepPos] === i) {
       faceUp = true;
       tone = "highlight";
     }
     if (phase === "recall" || phase === "success") {
-      if (mode === "pattern" && found.has(i)) {
+      if (isPatternLike && found.has(i)) {
         faceUp = true;
         tone = "success";
         content = <Check size={18} color="#fff" strokeWidth={3} />;
@@ -586,7 +636,7 @@ export default function MemoryGridTrainer() {
       }
     }
     if (phase === "gameover") {
-      if (mode === "pattern" && pattern.has(i)) {
+      if (isPatternLike && pattern.has(i)) {
         faceUp = true;
         const isFound = found.has(i);
         tone = isFound ? "success" : "highlight";
@@ -617,8 +667,16 @@ export default function MemoryGridTrainer() {
   let barNode = null;
   if (phase === "memorize" && mode === "pattern") {
     barNode = <DrainBar duration={displayTime} active barKey={barKey} />;
-  } else if (phase === "recall" && mode === "pattern") {
-    barNode = <SegmentBar count={Math.max(pattern.size, 1)} filled={found.size} color={C.success} />;
+  } else if (phase === "memorize" && mode === "queue") {
+    barNode = (
+      <SegmentBar
+        count={Math.max(revealPatterns.length, 1)}
+        filled={revealedSteps}
+        current={activeStepPos}
+        color={C.accent}
+        currentColor={C.gold}
+      />
+    );
   } else if (phase === "memorize" && isSequenceLike) {
     barNode = (
       <SegmentBar
@@ -639,8 +697,8 @@ export default function MemoryGridTrainer() {
         currentColor={C.gold}
       />
     );
-  } else if (phase === "success" && mode === "pattern") {
-    barNode = <SegmentBar count={Math.max(pattern.size, 1)} filled={pattern.size} color={C.success} />;
+  } else if ((phase === "recall" || phase === "success") && isPatternLike) {
+    barNode = <SegmentBar count={Math.max(pattern.size, 1)} filled={found.size} color={C.success} />;
   } else {
     barNode = <div style={{ height: 8 }} />;
   }
@@ -747,7 +805,7 @@ export default function MemoryGridTrainer() {
                 const row = Math.floor(i / boardSize);
                 const col = i % boardSize;
                 const waveDelay = Math.min((row + col) * 30, 240);
-                // Pattern's memorize reveal flips all at once; only the between-round reset uses the wave.
+                // Pattern/Queue's memorize reveal flips all at once; only the between-round reset uses the wave.
                 const transitionDelay = phase === "resetting" ? `${waveDelay}ms` : "0ms";
                 return (
                   <Card
@@ -798,26 +856,6 @@ export default function MemoryGridTrainer() {
                 >
                   <Play size={30} fill="#fff" style={{ marginLeft: 4 }} />
                 </button>
-
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 20,
-                    right: 20,
-                    bottom: 20,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ width: "100%", maxWidth: 280 }}>
-                    <ModeSwitch mode={mode} onChange={setMode} options={MODE_OPTIONS} />
-                  </div>
-                  <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 11.5, lineHeight: 1.4, maxWidth: 260 }}>
-                    {MODE_BLURB[mode]}
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -831,6 +869,26 @@ export default function MemoryGridTrainer() {
             {phase === "gameover" && "Here's the answer"}
           </div>
         </div>
+
+        {phase === "idle" && (
+          <div
+            className="idle-mode-panel"
+            style={{
+              background: C.surface,
+              borderRadius: 24,
+              padding: "16px 0 18px",
+              boxShadow: "0 2px 14px rgba(59,63,81,0.07)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            <ModeCarousel mode={mode} onChange={setMode} options={MODE_OPTIONS} />
+            <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 12, lineHeight: 1.4, padding: "0 20px" }}>
+              {MODE_BLURB[mode]}
+            </div>
+          </div>
+        )}
 
         {phase === "gameover" && (
           <div
@@ -948,7 +1006,7 @@ export default function MemoryGridTrainer() {
               </button>
             </div>
 
-            <ModeSwitch mode={mode} onChange={setMode} options={MODE_OPTIONS} />
+            <ModeCarousel mode={mode} onChange={setMode} options={MODE_OPTIONS} />
 
             {mode === "sequence" && (
               <ToggleRow icon={<Repeat size={16} />} checked={allowRepeat} onChange={updateAllowRepeat} />
@@ -965,11 +1023,21 @@ export default function MemoryGridTrainer() {
 
             {!isProgressive && (
               <Stepper
-                icon={mode === "pattern" ? <Eye size={16} /> : <ListOrdered size={16} />}
+                icon={mode === "sequence" ? <ListOrdered size={16} /> : <Eye size={16} />}
                 value={level}
                 onChange={(v) => updateModeConfig({ level: v })}
                 min={2}
                 max={maxLevel}
+              />
+            )}
+
+            {mode === "queue" && (
+              <Stepper
+                icon={<Layers size={16} />}
+                value={modeConfig.queueSize}
+                onChange={(v) => updateModeConfig({ queueSize: v })}
+                min={2}
+                max={6}
               />
             )}
 
@@ -996,9 +1064,9 @@ export default function MemoryGridTrainer() {
               icon={<Timer size={16} />}
               value={displayTime}
               onChange={(v) => updateModeConfig({ displayTime: v })}
-              min={0.5}
+              min={0.1}
               max={5}
-              step={0.5}
+              step={(v) => (v < 1 ? 0.1 : 0.5)}
               format={(v) => `${v.toFixed(1)}s`}
             />
 

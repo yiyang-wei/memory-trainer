@@ -190,6 +190,42 @@ button {
   animation: fadeIn 220ms ease;
 }
 
+.idle-mode-panel {
+  animation: fadeIn 260ms ease;
+}
+
+/* ---------- Mode carousel ---------- */
+
+.mode-carousel {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 16px 8px;
+}
+
+.mode-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.mode-card {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
