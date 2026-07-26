@@ -1,0 +1,14 @@
+{
+  "name": "Memory Trainer",
+  "short_name": "Memory",
+  "description": "Pattern and sequence memory training game",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF0F6",
+  "theme_color": "#EEF0F6",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
