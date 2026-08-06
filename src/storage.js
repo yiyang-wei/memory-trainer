@@ -4,11 +4,11 @@
 // can throw on write when the quota is full. The game has to stay fully playable in that
 // case, so every accessor here degrades to in-memory defaults rather than propagating.
 
-const SETTINGS_KEY = "memory-trainer.settings.v1";
-// v2: v1 kept a single best per mode, which pooled every difficulty into one slot — a
-// streak at 3x3/2-cells and one at 8x8/32-cells wrote to the same record. Those numbers
-// are not comparable to anything, so v2 starts clean rather than importing them.
-const STATS_KEY = "memory-trainer.stats.v2";
+const SETTINGS_KEY = "memory-trainer.settings.v2";
+// v3: challenge records are keyed by preset rather than by mode, and the score changed
+// meaning (rungs on a shared ladder -> rounds cleared, or the level an endless preset
+// reached). v2 numbers cannot be mapped onto that, so this starts clean.
+const STATS_KEY = "memory-trainer.stats.v3";
 
 const safeRead = (key) => {
   try {
@@ -32,7 +32,8 @@ const safeWrite = (key, value) => {
 // of coming back undefined and rendering an empty stepper.
 export const loadSettings = (defaultConfig, defaultMode) => {
   const saved = safeRead(SETTINGS_KEY);
-  if (!saved) return { config: defaultConfig, mode: defaultMode, intent: "challenge" };
+  const base = { config: defaultConfig, mode: defaultMode, intent: "challenge", challengeDisplayTime: {} };
+  if (!saved) return base;
 
   const config = {};
   for (const key of Object.keys(defaultConfig)) {
@@ -42,10 +43,12 @@ export const loadSettings = (defaultConfig, defaultMode) => {
     config,
     mode: defaultConfig[saved.mode] ? saved.mode : defaultMode,
     intent: saved.intent === "practice" ? "practice" : "challenge",
+    // Per preset, so a fast Pattern setting doesn't drag Sequence down with it.
+    challengeDisplayTime: saved.challengeDisplayTime || {},
   };
 };
 
-export const saveSettings = (config, mode, intent) => safeWrite(SETTINGS_KEY, { config, mode, intent });
+export const saveSettings = (settings) => safeWrite(SETTINGS_KEY, settings);
 
 // Identifies one exact Practice configuration. Derived from the mode's own settings
 // object, so a setting added later automatically becomes part of the identity instead of
@@ -56,32 +59,38 @@ export const practiceKey = (modeConfig) =>
     .map((k) => `${k}=${modeConfig[k]}`)
     .join(",");
 
-const EMPTY_RECORD = { plays: 0, best: 0 };
+export const EMPTY_RECORD = { plays: 0, best: 0, bestDisplayTime: null };
 
-export const loadStats = (modeKeys) => {
+export const loadStats = (modeKeys, challengeIds) => {
   const saved = safeRead(STATS_KEY) || {};
   const challenge = {};
   const practice = {};
-  for (const key of modeKeys) {
-    challenge[key] = { ...EMPTY_RECORD, ...(saved.challenge?.[key] || {}) };
-    practice[key] = saved.practice?.[key] || {};
-  }
+  for (const id of challengeIds) challenge[id] = { ...EMPTY_RECORD, ...(saved.challenge?.[id] || {}) };
+  for (const key of modeKeys) practice[key] = saved.practice?.[key] || {};
   return { challenge, practice };
 };
 
 export const saveStats = (stats) => safeWrite(STATS_KEY, stats);
 
 // Folds one finished run into the stats. Pure — the caller decides when a run is over, so
-// this never double-counts a play. `score` is rounds cleared, which in a Challenge is
-// exactly the rung reached.
-export const mergeRun = (stats, { mode, intent, configKey, score }) => {
+// this never double-counts a play.
+//
+// Display time deliberately does not key the record: one preset, one number. It can only
+// ever be turned down from the default, so a record cannot be inflated by slowing the
+// game — but the speed it was set at is worth keeping, so it rides along with the best.
+export const mergeRun = (stats, { mode, intent, challengeId, configKey, score, displayTime }) => {
   if (intent === "challenge") {
-    const prev = stats.challenge[mode] || EMPTY_RECORD;
+    const prev = stats.challenge[challengeId] || EMPTY_RECORD;
+    const improved = score > prev.best;
     return {
       ...stats,
       challenge: {
         ...stats.challenge,
-        [mode]: { plays: prev.plays + 1, best: Math.max(prev.best, score) },
+        [challengeId]: {
+          plays: prev.plays + 1,
+          best: Math.max(prev.best, score),
+          bestDisplayTime: improved ? displayTime : prev.bestDisplayTime,
+        },
       },
     };
   }
@@ -99,7 +108,7 @@ export const mergeRun = (stats, { mode, intent, configKey, score }) => {
   };
 };
 
-export const recordFor = (stats, { mode, intent, configKey }) =>
+export const recordFor = (stats, { mode, intent, challengeId, configKey }) =>
   intent === "challenge"
-    ? stats.challenge[mode] || EMPTY_RECORD
+    ? stats.challenge[challengeId] || EMPTY_RECORD
     : stats.practice[mode]?.[configKey] || EMPTY_RECORD;

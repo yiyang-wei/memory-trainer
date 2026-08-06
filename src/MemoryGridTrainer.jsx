@@ -28,28 +28,25 @@ import {
   BookOpen,
   BarChart3,
 } from "lucide-react";
-import {
-  loadSettings,
-  saveSettings,
-  loadStats,
-  saveStats,
-  mergeRun,
-  recordFor,
-  practiceKey,
-} from "./storage.js";
+import { loadSettings, saveSettings, loadStats, saveStats, mergeRun, recordFor, practiceKey } from "./storage.js";
 import { TutorialPlayer, TUTORIAL_SCRIPTS, MODE_RULES } from "./tutorial.jsx";
 import {
   ADAPTIVE_MIN_BOARD,
   ADAPTIVE_MAX_BOARD,
   computeAdaptiveClear,
   computeAdaptiveFail,
-  remapIndex,
-  rungParams,
-  rungDescription,
-  CHALLENGE_DISPLAY_TIME,
-  CHALLENGE_AXIS,
-  MAX_RUNG,
 } from "./ladder.js";
+import {
+  CHALLENGES,
+  challengeById,
+  challengesForMode,
+  challengeParams,
+  runScore,
+  scoreNoun,
+  DEFAULT_CHALLENGE_DISPLAY_TIME,
+  CHALLENGE_DISPLAY_TIME_MIN,
+  CHALLENGE_DISPLAY_TIME_MAX,
+} from "./challenges.js";
 
 const C = {
   bg: "#EEF0F6",
@@ -129,6 +126,10 @@ const describeConfigKey = (key) =>
     })
     .filter(Boolean)
     .join(" · ");
+
+// Every score noun is a plain plural (rounds / cells / steps / patterns), so one rule
+// covers them all rather than each call site remembering to special-case 1.
+const countOf = (n, noun) => `${n} ${n === 1 ? noun.replace(/s$/, "") : noun}`;
 
 const FONT = "'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
 
@@ -505,7 +506,11 @@ export default function MemoryGridTrainer() {
   const [mode, setMode] = useState(restored.mode); // 'pattern' | 'sequence' | 'progressive' | 'queue'
   const [intent, setIntent] = useState(restored.intent); // 'challenge' (ranked) | 'practice'
   const [config, setConfig] = useState(restored.config);
-  const [stats, setStats] = useState(() => loadStats(Object.keys(DEFAULT_CONFIG)));
+  const [stats, setStats] = useState(() =>
+    loadStats(Object.keys(DEFAULT_CONFIG), CHALLENGES.map((c) => c.id))
+  );
+  const [challengeId, setChallengeId] = useState(() => challengesForMode(restored.mode)[0].id);
+  const [challengeDisplayTime, setChallengeDisplayTime] = useState(restored.challengeDisplayTime);
   const [showSettings, setShowSettings] = useState(false);
   // 'menu' is the landing screen; 'modes' picks a mode for the chosen intent. The tutorial
   // is a screen rather than an overlay so the Queue demo has room for its queue strip.
@@ -537,8 +542,8 @@ export default function MemoryGridTrainer() {
   const [newRecord, setNewRecord] = useState(false);
 
   useEffect(() => {
-    saveSettings(config, mode, intent);
-  }, [config, mode, intent]);
+    saveSettings({ config, mode, intent, challengeDisplayTime });
+  }, [config, mode, intent, challengeDisplayTime]);
 
   const timers = useRef([]);
   // Starts true: nothing is in flight at mount, so an early mode switch banks nothing.
@@ -559,28 +564,32 @@ export default function MemoryGridTrainer() {
 
   const modeConfig = config[mode];
   const isChallenge = intent === "challenge";
-  // A Challenge drives its own ladder, so adaptive practice never applies inside one.
+  const challenge = challengeById(challengeId);
+  // A Challenge drives its own preset, so adaptive practice never applies inside one.
   const isAdaptivePattern = !isChallenge && mode === "pattern" && modeConfig.adaptive;
 
   // configBoardSize/configLevel are the saved settings (what the Settings sheet shows and
   // edits); boardSize/level are what's actually in play, which diverges from the saved
-  // config inside a Challenge (driven by the rung) or an adaptive practice run.
+  // config inside a Challenge (driven by the preset) or an adaptive practice run.
   const configBoardSize = modeConfig.boardSize;
   const configLevel = modeConfig.level;
-  const ladder = isChallenge ? rungParams(mode, rung) : null;
+  // `rung` counts rounds played, so the parameters follow from rounds *cleared*.
+  const preset = isChallenge ? challengeParams(challenge, rung - 1) : null;
 
   const boardSize = isChallenge
-    ? ladder.boardSize
+    ? preset.boardSize
     : isAdaptivePattern && adaptive
       ? adaptive.boardSize
       : configBoardSize;
-  const level = isChallenge ? ladder.level : isAdaptivePattern && adaptive ? adaptive.level : configLevel;
-  const displayTime = isChallenge ? CHALLENGE_DISPLAY_TIME[mode] : modeConfig.displayTime;
-  const queueSize = isChallenge ? ladder.queueSize : modeConfig.queueSize;
-  const startLength = isChallenge ? ladder.startLength : modeConfig.startLength;
-  const increment = isChallenge ? ladder.increment : modeConfig.increment;
-  // Challenge sequences always allow repeats — a no-repeat rule would cap the ladder at
-  // the cell count and make the top rungs unreachable.
+  const level = isChallenge ? preset.level : isAdaptivePattern && adaptive ? adaptive.level : configLevel;
+  // The one Challenge setting the player controls, and it only turns down from 2s.
+  const challengeSpeed = challengeDisplayTime[challengeId] ?? DEFAULT_CHALLENGE_DISPLAY_TIME;
+  const displayTime = isChallenge ? challengeSpeed : modeConfig.displayTime;
+  const queueSize = isChallenge ? preset.queueSize : modeConfig.queueSize;
+  const startLength = isChallenge ? preset.startLength : modeConfig.startLength;
+  const increment = isChallenge ? preset.increment : modeConfig.increment;
+  // Challenge sequences always allow repeats — a no-repeat rule would cap length at the
+  // cell count and make the longer presets impossible on a small board.
   const allowRepeat = isChallenge ? true : mode === "sequence" ? modeConfig.allowRepeat : isProgressive;
 
   const total = boardSize * boardSize;
@@ -590,11 +599,11 @@ export default function MemoryGridTrainer() {
   const maxLevel =
     isPatternLike ? Math.floor(configTotal / 2) : modeConfig.allowRepeat ? 60 : Math.min(configTotal - 1, 60);
 
-  // Runs are scored on rounds cleared, which inside a Challenge is exactly the rung
-  // reached. Practice keeps its own best per exact configuration, never the ranked record.
+  // A fixed preset scores rounds cleared; an endless one scores the level it reached.
+  // Practice keeps its own best per exact configuration, never a ranked record.
   const configKey = practiceKey(modeConfig);
-  const record = recordFor(stats, { mode, intent, configKey });
-  const sessionScore = streak;
+  const record = recordFor(stats, { mode, intent, challengeId, configKey });
+  const sessionScore = isChallenge ? runScore(challenge, streak) : streak;
 
   const updateModeConfig = (patch) =>
     setConfig((c) => ({ ...c, [mode]: { ...c[mode], ...patch } }));
@@ -653,10 +662,6 @@ export default function MemoryGridTrainer() {
     const rQueue = overrides?.queueSize ?? queueSize;
     const rGrowBy = overrides?.growBy ?? 1;
     const rTotal = rBoard * rBoard;
-    // Set when a Challenge rung widens the board. Anything the player is still holding in
-    // memory has to move with it, keeping its row and column on the larger grid.
-    const grewFrom = overrides?.fromBoardSize && overrides.fromBoardSize !== rBoard ? overrides.fromBoardSize : null;
-    const carryCells = (cells) => (grewFrom ? cells.map((i) => remapIndex(i, grewFrom, rBoard)) : cells);
 
     if (mode === "pattern") {
       const p = generatePatternOfSize(rLevel, rTotal);
@@ -678,15 +683,8 @@ export default function MemoryGridTrainer() {
       const fresh = Array.from({ length: isFirstRound ? rQueue : rGrowBy }, () =>
         generatePatternOfSize(rLevel, rTotal)
       );
-      const kept = isFirstRound
-        ? []
-        : queueList.slice(1).map((p) => new Set(carryCells([...p])));
-      const nextQueue = [...kept, ...fresh];
-
-      // Queued patterns are normally never shown again, so a board that grows underneath
-      // them would be unfair — the player memorized them at a different size. On a resize
-      // the whole queue flashes again on the new board instead of just the new arrivals.
-      const incoming = grewFrom ? nextQueue : fresh;
+      const nextQueue = isFirstRound ? fresh : [...queueList.slice(1), ...fresh];
+      const incoming = fresh;
 
       setQueueList(nextQueue);
       setPattern(nextQueue[0]);
@@ -704,12 +702,7 @@ export default function MemoryGridTrainer() {
       const seq = isProgressive
         ? isFirstRound
           ? Array.from({ length: startLength }, () => Math.floor(Math.random() * rTotal))
-          : [
-              // Safe to widen the board here: the whole sequence replays every round, so
-              // the player re-learns the carried steps at the new size straight away.
-              ...carryCells(sequence),
-              ...Array.from({ length: increment }, () => Math.floor(Math.random() * rTotal)),
-            ]
+          : [...sequence, ...Array.from({ length: increment }, () => Math.floor(Math.random() * rTotal))]
         : generateSequence(rLevel, rTotal);
       setSequence(seq);
       setInputIndex(0);
@@ -741,7 +734,7 @@ export default function MemoryGridTrainer() {
       setAdaptive({ level: modeConfig.level, boardSize: modeConfig.boardSize, clearStreak: 0, failStreak: 0 });
     }
     // A Challenge always opens on rung 1 regardless of what Settings holds.
-    startRound(true, isChallenge ? rungParams(mode, 1) : null);
+    startRound(true, isChallenge ? challengeParams(challenge, 0) : null);
   };
 
   // Folds the finished run into the stats, exactly once — a stray timer or a second exit
@@ -750,7 +743,14 @@ export default function MemoryGridTrainer() {
   const bankSession = () => {
     if (sessionEnded.current) return false;
     sessionEnded.current = true;
-    const nextStats = mergeRun(stats, { mode, intent, configKey, score: sessionScore });
+    const nextStats = mergeRun(stats, {
+      mode,
+      intent,
+      challengeId,
+      configKey,
+      score: sessionScore,
+      displayTime,
+    });
     setStats(nextStats);
     saveStats(nextStats);
     return sessionScore > record.best;
@@ -797,14 +797,12 @@ export default function MemoryGridTrainer() {
 
   // One cleared round, one rung. Queue deepens by handing the next round an extra pattern
   // to append; the other modes just take the rung's board/level.
+  // One cleared round, one step. A fixed preset simply replays the same parameters; an
+  // endless one advances its ramp, which for Queue means an extra pattern joins the back.
   const advanceChallengeRung = () => {
-    const nextRung = Math.min(rung + 1, MAX_RUNG[mode]);
-    const next = rungParams(mode, nextRung);
-    const overrides = {
-      ...next,
-      fromBoardSize: boardSize,
-      growBy: mode === "queue" ? next.queueSize - queueSize + 1 : 1,
-    };
+    const nextRung = rung + 1;
+    const next = challengeParams(challenge, nextRung - 1);
+    const overrides = { ...next, growBy: mode === "queue" ? next.queueSize - queueSize + 1 : 1 };
     advanceTo(overrides, () => setRung(nextRung));
   };
 
@@ -904,6 +902,10 @@ export default function MemoryGridTrainer() {
   // mode's board size, so any mode picker (idle screen, settings, tutorial) routes here.
   const changeMode = (key) => {
     setMode(key);
+    // Challenge presets belong to a mode, so a stale id from the previous mode would
+    // resolve to the wrong board entirely. Callers that want a specific preset set it
+    // straight after this, overwriting the default.
+    setChallengeId(challengesForMode(key)[0].id);
     resetToIdle();
   };
 
@@ -985,9 +987,11 @@ export default function MemoryGridTrainer() {
   // show the current level as the headline stat instead.
   // In a Challenge the rung *is* the score, so show it directly. Otherwise streak only
   // fails to reflect difficulty in the modes where the level itself climbs.
-  const showsLevelStat = isChallenge || isProgressive || isAdaptivePattern;
+  const showsLevelStat = (isChallenge && challenge.kind === "endless") || isProgressive || isAdaptivePattern;
   const primaryStatValue = isChallenge
-    ? rung
+    ? challenge.kind === "endless"
+      ? level
+      : streak
     : isProgressive
       ? sequence.length
       : isAdaptivePattern
@@ -997,8 +1001,11 @@ export default function MemoryGridTrainer() {
 
   // What the saved record and the just-finished run actually amounted to, in the mode's
   // own terms, so a bare rung number never has to be decoded by the player.
-  const recordDescription = isChallenge && record.best > 0 ? rungDescription(mode, record.best) : null;
-  const clearedDescription = isChallenge && streak > 0 ? rungDescription(mode, streak) : null;
+  const recordNoun = isChallenge ? scoreNoun(challenge) : "rounds";
+  const recordDescription =
+    isChallenge && record.best > 0
+      ? `${countOf(record.best, recordNoun)}${record.bestDisplayTime ? ` at ${record.bestDisplayTime}s` : ""}`
+      : null;
   const practiceSummary = isProgressive
     ? `${configBoardSize}×${configBoardSize}, from ${modeConfig.startLength} steps, ${modeConfig.displayTime}s`
     : mode === "queue"
@@ -1074,7 +1081,7 @@ export default function MemoryGridTrainer() {
           description="Ranked. Locked settings, one step harder each round."
           onClick={() => {
             setIntent("challenge");
-            setScreen("modes");
+            setScreen("challenges");
           }}
         />
         <MenuButton
@@ -1102,18 +1109,100 @@ export default function MemoryGridTrainer() {
     );
   }
 
+  if (screen === "challenges") {
+    return (
+      <Screen title="Challenge" onBack={() => setScreen("menu")}>
+        <div style={{ fontSize: 12, color: C.mutedInk, lineHeight: 1.5, padding: "0 4px" }}>
+          Each row is one mode, easiest on the left. Settings are fixed apart from speed,
+          which only turns down — so a record always means "at this pace or faster".
+        </div>
+        {MODE_OPTIONS.map((o) => (
+          <div
+            key={o.key}
+            style={{
+              background: C.surface,
+              borderRadius: 20,
+              padding: "14px 0 12px",
+              boxShadow: "0 2px 12px rgba(59,63,81,0.07)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0 16px 10px",
+                fontSize: 14,
+                fontWeight: 700,
+                color: C.ink,
+              }}
+            >
+              <span style={{ color: C.accent, display: "flex" }}>{o.icon}</span>
+              {o.label}
+            </div>
+            <div className="mode-carousel" style={{ scrollSnapType: "none" }}>
+              {challengesForMode(o.key).map((ch) => {
+                const rec = stats.challenge[ch.id];
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => {
+                      changeMode(o.key);
+                      setChallengeId(ch.id);
+                      setScreen("game");
+                    }}
+                    style={{
+                      flex: "0 0 auto",
+                      width: 108,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 3,
+                      padding: "11px 12px",
+                      borderRadius: 15,
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      background: ch.kind === "endless" ? C.accentSoft : C.bg,
+                    }}
+                  >
+                    <span style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{ch.title}</span>
+                    <span style={{ fontSize: 10.5, color: C.mutedInk, lineHeight: 1.25 }}>{ch.detail}</span>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        marginTop: 3,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: rec.best > 0 ? C.ink : C.mutedInk,
+                      }}
+                    >
+                      <Trophy size={10} color={rec.best > 0 ? C.gold : C.heartEmpty} />
+                      {rec.best > 0 ? countOf(rec.best, scoreNoun(ch)) : "—"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </Screen>
+    );
+  }
+
   if (screen === "modes") {
     return (
-      <Screen title={isChallenge ? "Challenge" : "Training"} onBack={() => setScreen("menu")}>
+      <Screen title="Training" onBack={() => setScreen("menu")}>
         <div style={{ fontSize: 12, color: C.mutedInk, lineHeight: 1.5, padding: "0 4px" }}>
-          {isChallenge
-            ? "Settings are fixed so records stay comparable. Each run climbs one step per cleared round and ends when you slip."
-            : "Pick a mode, then tune it however you like in Settings. Bests are kept per configuration and stay out of the records."}
+          Pick a mode, then tune it however you like in Settings. Bests are kept per
+          configuration and stay out of the records.
         </div>
         {MODE_OPTIONS.map((o) => {
           const modeRecord = recordFor(stats, {
             mode: o.key,
-            intent,
+            intent: "practice",
             configKey: practiceKey(config[o.key]),
           });
           return (
@@ -1170,8 +1259,7 @@ export default function MemoryGridTrainer() {
                   <Trophy size={11} color={modeRecord.plays > 0 ? C.gold : C.heartEmpty} />
                   {modeRecord.plays > 0 ? (
                     <span>
-                      {isChallenge ? "Record" : "Best here"} <strong>{modeRecord.best}</strong>
-                      {isChallenge && modeRecord.best > 0 ? ` · ${rungDescription(o.key, modeRecord.best)}` : ""}
+                      Best here <strong>{modeRecord.best}</strong>
                     </span>
                   ) : (
                     <span style={{ opacity: 0.8 }}>Not played yet</span>
@@ -1202,39 +1290,49 @@ export default function MemoryGridTrainer() {
             <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Challenge records</span>
           </div>
           <div style={{ fontSize: 11, color: C.mutedInk, marginBottom: 12, lineHeight: 1.4 }}>
-            Rungs cleared on locked settings — comparable across every run.
+            Fixed presets score rounds cleared; endless ones score the level reached.
           </div>
-          {MODE_OPTIONS.map((o) => {
-            const r = stats.challenge[o.key];
-            return (
+          {MODE_OPTIONS.map((o) => (
+            <div key={o.key} style={{ paddingTop: 9, borderTop: `1px solid ${C.bg}` }}>
               <div
-                key={o.key}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
-                  padding: "9px 0",
-                  borderTop: `1px solid ${C.bg}`,
+                  gap: 7,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: C.ink,
+                  marginBottom: 4,
                 }}
               >
-                <div style={{ color: C.accent, display: "flex" }}>{o.icon}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{o.label}</div>
-                  {r.best > 0 && (
-                    <div style={{ fontSize: 11, color: C.mutedInk }}>{rungDescription(o.key, r.best)}</div>
-                  )}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: r.best > 0 ? C.ink : C.heartEmpty }}>
-                    {r.best}
-                  </div>
-                  <div style={{ fontSize: 10, color: C.mutedInk }}>
-                    {r.plays} {r.plays === 1 ? "run" : "runs"}
-                  </div>
-                </div>
+                <span style={{ color: C.accent, display: "flex" }}>{o.icon}</span>
+                {o.label}
               </div>
-            );
-          })}
+              {challengesForMode(o.key).map((ch) => {
+                const r = stats.challenge[ch.id];
+                return (
+                  <div
+                    key={ch.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: "3px 0 3px 22px",
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: C.mutedInk }}>
+                      {ch.title} · {ch.detail}
+                      {r.bestDisplayTime ? ` · at ${r.bestDisplayTime}s` : ""}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: r.best > 0 ? C.ink : C.heartEmpty, flexShrink: 0 }}>
+                      {r.best > 0 ? countOf(r.best, scoreNoun(ch)) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         <div
@@ -1332,8 +1430,9 @@ export default function MemoryGridTrainer() {
                 paddingTop: 10,
               }}
             >
-              <strong style={{ color: C.ink }}>Challenge</strong> climbs {CHALLENGE_AXIS[tutorialMode]}, one step
-              per cleared round.
+              <strong style={{ color: C.ink }}>Challenge</strong> offers{" "}
+              {challengesForMode(tutorialMode).length} fixed presets for this mode — the endless one gets
+              harder every cleared round, the rest hold steady and count how long you last.
             </div>
           </div>
         </div>
@@ -1631,9 +1730,13 @@ export default function MemoryGridTrainer() {
             <div style={{ textAlign: "center", padding: "0 20px" }}>
               {isChallenge ? (
                 <div style={{ color: C.mutedInk, fontSize: 12, lineHeight: 1.5 }}>
-                  Locked settings, one step harder each round. Ends when you slip.
+                  {challenge.kind === "endless"
+                    ? "Gets one step harder every cleared round. Ends when you slip."
+                    : "Fixed difficulty. Ends when you slip — how long can you hold it?"}
                   <br />
-                  Climbs <strong style={{ color: C.ink }}>{CHALLENGE_AXIS[mode]}</strong>.
+                  <strong style={{ color: C.ink }}>
+                    {challenge.title} · {challenge.detail} · {displayTime}s
+                  </strong>
                 </div>
               ) : (
                 <div style={{ color: C.mutedInk, fontSize: 12, lineHeight: 1.5 }}>
@@ -1658,8 +1761,9 @@ export default function MemoryGridTrainer() {
                   <>
                     <span>
                       {isChallenge ? "Record" : "Best here"}{" "}
-                      <strong style={{ color: C.ink, fontWeight: 700 }}>{record.best}</strong>
-                      {isChallenge && recordDescription ? ` · ${recordDescription}` : ""}
+                      <strong style={{ color: C.ink, fontWeight: 700 }}>
+                        {isChallenge && recordDescription ? recordDescription : record.best}
+                      </strong>
                     </span>
                     <span style={{ opacity: 0.6 }}>· {record.plays} played</span>
                   </>
@@ -1707,13 +1811,10 @@ export default function MemoryGridTrainer() {
                 asked for, so the number means something without a lookup table. */}
             {isChallenge && (
               <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 12, lineHeight: 1.5 }}>
-                Reached <strong style={{ color: C.ink }}>level {streak}</strong>
-                {clearedDescription ? (
-                  <>
-                    <br />
-                    {clearedDescription}
-                  </>
-                ) : null}
+                {challenge.kind === "endless" ? "Reached " : "Held "}
+                <strong style={{ color: C.ink }}>{countOf(sessionScore, recordNoun)}</strong>
+                <br />
+                {challenge.title} · {challenge.detail} · {displayTime}s
               </div>
             )}
 
@@ -1738,13 +1839,16 @@ export default function MemoryGridTrainer() {
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.mutedInk, fontSize: 12 }}>
                 <Trophy size={13} color={C.gold} />
-                {isChallenge ? "Record" : "Best here"} <strong style={{ color: C.ink }}>{record.best}</strong>
+                {isChallenge ? "Record" : "Best here"}{" "}
+                <strong style={{ color: C.ink }}>
+                  {isChallenge ? countOf(record.best, recordNoun) : record.best}
+                </strong>
               </div>
             )}
             <button
               onClick={() => {
                 resetToIdle();
-                setScreen("modes");
+                setScreen(isChallenge ? "challenges" : "modes");
               }}
               style={{
                 width: 52,
@@ -1842,10 +1946,27 @@ export default function MemoryGridTrainer() {
               >
                 <Trophy size={14} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span>
-                  Challenge runs use fixed settings so records stay comparable. Switch to
-                  Practice to change them.
+                  <strong>
+                    {challenge.title} · {challenge.detail}
+                  </strong>
+                  <br />
+                  Board and size are fixed so one record means one thing. Speed is yours —
+                  it only turns down, so going faster can never inflate a record.
                 </span>
               </div>
+            )}
+
+            {isChallenge && (
+              <Stepper
+                icon={<Timer size={16} />}
+                value={challengeSpeed}
+                onChange={(v) => setChallengeDisplayTime((d) => ({ ...d, [challengeId]: v }))}
+                min={CHALLENGE_DISPLAY_TIME_MIN}
+                max={CHALLENGE_DISPLAY_TIME_MAX}
+                step={(v) => (v <= 1 ? 0.1 : 0.25)}
+                label="display time"
+                format={(v) => `${v.toFixed(1)}s`}
+              />
             )}
 
             {!isChallenge && mode === "sequence" && (

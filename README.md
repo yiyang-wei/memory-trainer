@@ -9,73 +9,64 @@ Cloudflare Workers.
 | --- | --- | --- |
 | **Pattern** | 6×6 | Memorize the highlighted cells, then tap them all. Adaptive difficulty on by default. |
 | **Sequence** | 3×3 | Memorize the order the cells light up, then repeat it back. |
-| **Progressive** | 3×3 | Same as Sequence, but the sequence grows by one every round. |
+| **Progressive** | 3×3 | Same as Sequence, but one sequence grows by a step every round. |
 | **Queue** | 3×3 | Several patterns are in flight; reproduce the oldest while a new one joins the back. |
 
 Every round grants 3 hearts. Losing them all ends the run — except in adaptive Pattern
 practice, which never hard-stops and instead retunes the difficulty (use the stop button
 in the header to end that run and bank the result).
 
-## Challenge vs Practice
+## Challenge vs Training
 
 Every mode can be played two ways, and this split is the reason records mean anything.
 
-**Challenge** is ranked. Every setting is locked — including display time, which is the
-single strongest difficulty lever — and the run climbs exactly one rung per cleared round,
-ending on the first failed round. The score is rungs cleared, so it is directly comparable
-between players and across sessions.
+**Challenge** is ranked. Each mode offers several named presets, defined in
+`src/challenges.js`, and each preset keeps its own record. Two shapes:
 
-Each mode climbs the axes that define what it actually tests:
+- **fixed** — difficulty never moves; the score is rounds cleared in a row. Measures
+  consistency at a known difficulty.
+- **endless** — one parameter ramps by one every cleared round; the score is the value it
+  reached. Measures your ceiling.
 
-| Mode | Rung 1 | Climbs | Top rung |
-| --- | --- | --- | --- |
-| **Pattern** | 2 cells on 3×3 | cells to recall, board widening underneath | 31 (32 cells on 8×8) |
-| **Sequence** | 2 steps on 3×3 | length, board widening at 6 / 9 / 12 / 15 / 18 steps | 21 (22 steps on 8×8) |
-| **Progressive** | 2 steps on 3×3 | same, but one sequence grown in place | 21 (22 steps on 8×8) |
-| **Queue** | 2 patterns of 3 cells on 3×3 | depth, pattern size and board, rotating | 17 (8 patterns of 8 cells on 8×8) |
+| Mode | Presets | Endless variant |
+| --- | --- | --- |
+| **Pattern** | 6×6/10, 7×7/13, 8×8/14 cells | 8×8, 14 → 31 cells |
+| **Sequence** | 3×3, 4×4, 5×5 at 12 steps | 5×5, 3 → 30 steps |
+| **Progressive** | 3×3, 4×4, 5×5 | all three (it grows one sequence in place) |
+| **Queue** | 3×3/3-of-3, 4×4/4-of-4, 5×5/5-of-5 | 5×5, 3 → 10 deep |
 
-Every ladder widens the board alongside the axis it is really measuring, because a single
-axis stops biting on its own — a 30-step sequence on a 3×3 board is tedious rather than
-hard. Queue is the one mode with three axes worth climbing, so its ladder is written out
-explicitly in `src/ladder.js`: each rung bumps exactly one of depth / pattern size / board,
-rotating so no axis runs ahead.
+Every preset holds its **board size constant**, so nothing already memorized is ever moved
+out from under the player mid-run.
 
-Growing the board mid-run has to keep already-memorized cells where the player left them,
-so `remapIndex` preserves a cell's row and column and the grid simply widens around it.
-The two modes need different handling:
+### Display time
 
-- **Progressive** replays its whole sequence every round, so the player re-learns the
-  carried steps at the new size immediately. Remapping alone is enough.
-- **Queue** never re-shows a queued pattern, so remapping alone would be unfair — the
-  player memorized those at a different size. On a resize the entire queue flashes again
-  on the new board instead of just the new arrivals.
+The one Challenge setting the player controls. It starts at 2s and can only be turned
+*down*, which is what lets a preset keep a single record honestly: a record can never be
+inflated by slowing the game, only earned at that pace or faster. The speed a record was
+set at is stored alongside it and shown in Records, so the extra information isn't lost.
 
-**Practice** is everything in Settings: any board, level, display time you like. Bests are
+**Training** is everything in Settings: any board, level, display time you like. Bests are
 kept per exact configuration (so 6×6/10-cells and 7×7/10-cells are separate entries) and
-never touch the ranked record.
+never touch the ranked records.
 
-A single best per mode was the earlier design and it was wrong: a streak at 3×3 with 2
-cells and one at 8×8 with 32 wrote to the same slot, which made the number meaningless.
-That is why storage moved to `v2` rather than migrating.
+### The adaptive practice ladder
 
-### The difficulty ladder
+`src/ladder.js` now serves only adaptive Pattern practice. Each board size has a level cap
+(`floor(cells^(2/3))`, or half the board at 8×8) and a floor one above the previous board's
+cap, making every `(board, level)` pair a single rung on one monotonic sequence. Two clears
+move up, two fails move down, and because the descent retraces the ascent exactly a fail
+can never land the player somewhere harder.
 
-Both adaptive practice and the Pattern Challenge walk one shared ladder (`src/ladder.js`).
-Each board size has a level cap (`floor(cells^(2/3))`, or half the board at 8×8) and a
-floor one above the previous board's cap. Together those make every `(board, level)` pair a
-single rung on one monotonic sequence, so overflowing the cap grows the board and dropping
-below the floor shrinks it back to exactly the rung below.
-
-Adaptive practice moves two clears up / two fails down along that ladder. A Challenge
-walks the same rungs one per cleared round and never descends.
+Adaptive practice is the only thing that changes board size mid-run, and Pattern redraws
+its pattern every round, so nothing needs carrying across a resize.
 
 ## Screens
 
 `MemoryGridTrainer` routes on a `screen` state rather than stacking overlays:
 
 ```
-menu ─┬─ Challenge ─┐
-      ├─ Training ──┴─ modes (mode list + record per mode) ─ game
+menu ─┬─ Challenge ── challenges (one row per mode, presets easiest-first) ─ game
+      ├─ Training ─── modes (mode list + best per mode) ───────────────────── game
       ├─ records
       └─ tutorial            (also reachable from the game's help button,
                               which returns to the game rather than the menu)
@@ -130,12 +121,12 @@ the central safe zone). Commit the regenerated PNGs alongside any change to the 
 
 ## Persistence
 
-Settings and records live in `localStorage` under `memory-trainer.settings.v1` and
-`memory-trainer.stats.v2`. Saved payloads are merged over the current defaults on load, so
+Settings and records live in `localStorage` under `memory-trainer.settings.v2` and
+`memory-trainer.stats.v3`. Saved payloads are merged over the current defaults on load, so
 adding a setting doesn't break existing users. All storage access degrades gracefully when
 `localStorage` is unavailable (Safari private mode, blocked site data) — the game stays
 playable, it just won't remember anything.
 
-Practice records are keyed by `practiceKey()`, a sorted serialization of the mode's own
+Challenge records are keyed by preset id. Training records are keyed by `practiceKey()`, a sorted serialization of the mode's own
 settings object. A setting added later automatically becomes part of that identity, so two
 genuinely different difficulties can never collapse into one record.
