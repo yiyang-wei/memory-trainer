@@ -1,11 +1,14 @@
-// Settings and personal bests, persisted to localStorage.
+// Settings, ranked Challenge records, and unranked Practice bests.
 //
 // localStorage throws in Safari private mode and wherever site data is blocked, and it
 // can throw on write when the quota is full. The game has to stay fully playable in that
 // case, so every accessor here degrades to in-memory defaults rather than propagating.
 
 const SETTINGS_KEY = "memory-trainer.settings.v1";
-const STATS_KEY = "memory-trainer.stats.v1";
+// v2: v1 kept a single best per mode, which pooled every difficulty into one slot — a
+// streak at 3x3/2-cells and one at 8x8/32-cells wrote to the same record. Those numbers
+// are not comparable to anything, so v2 starts clean rather than importing them.
+const STATS_KEY = "memory-trainer.stats.v2";
 
 const safeRead = (key) => {
   try {
@@ -29,7 +32,7 @@ const safeWrite = (key, value) => {
 // of coming back undefined and rendering an empty stepper.
 export const loadSettings = (defaultConfig, defaultMode) => {
   const saved = safeRead(SETTINGS_KEY);
-  if (!saved) return { config: defaultConfig, mode: defaultMode };
+  if (!saved) return { config: defaultConfig, mode: defaultMode, intent: "challenge" };
 
   const config = {};
   for (const key of Object.keys(defaultConfig)) {
@@ -38,47 +41,65 @@ export const loadSettings = (defaultConfig, defaultMode) => {
   return {
     config,
     mode: defaultConfig[saved.mode] ? saved.mode : defaultMode,
+    intent: saved.intent === "practice" ? "practice" : "challenge",
   };
 };
 
-export const saveSettings = (config, mode) => safeWrite(SETTINGS_KEY, { config, mode });
+export const saveSettings = (config, mode, intent) => safeWrite(SETTINGS_KEY, { config, mode, intent });
 
-export const EMPTY_MODE_STATS = { plays: 0, bestStreak: 0, bestLevel: 0, bestLength: 0 };
+// Identifies one exact Practice configuration. Derived from the mode's own settings
+// object, so a setting added later automatically becomes part of the identity instead of
+// silently merging two different difficulties into one record.
+export const practiceKey = (modeConfig) =>
+  Object.keys(modeConfig)
+    .sort()
+    .map((k) => `${k}=${modeConfig[k]}`)
+    .join(",");
+
+const EMPTY_RECORD = { plays: 0, best: 0 };
 
 export const loadStats = (modeKeys) => {
   const saved = safeRead(STATS_KEY) || {};
-  const stats = {};
-  for (const key of modeKeys) stats[key] = { ...EMPTY_MODE_STATS, ...(saved[key] || {}) };
-  return stats;
+  const challenge = {};
+  const practice = {};
+  for (const key of modeKeys) {
+    challenge[key] = { ...EMPTY_RECORD, ...(saved.challenge?.[key] || {}) };
+    practice[key] = saved.practice?.[key] || {};
+  }
+  return { challenge, practice };
 };
 
 export const saveStats = (stats) => safeWrite(STATS_KEY, stats);
 
-// Folds one finished session into the stored bests. Pure — the caller decides when a
-// session is over, so this never double-counts a play.
-export const mergeSession = (stats, mode, session) => {
-  const prev = stats[mode] || EMPTY_MODE_STATS;
+// Folds one finished run into the stats. Pure — the caller decides when a run is over, so
+// this never double-counts a play. `score` is rounds cleared, which in a Challenge is
+// exactly the rung reached.
+export const mergeRun = (stats, { mode, intent, configKey, score }) => {
+  if (intent === "challenge") {
+    const prev = stats.challenge[mode] || EMPTY_RECORD;
+    return {
+      ...stats,
+      challenge: {
+        ...stats.challenge,
+        [mode]: { plays: prev.plays + 1, best: Math.max(prev.best, score) },
+      },
+    };
+  }
+  const modePractice = stats.practice[mode] || {};
+  const prev = modePractice[configKey] || EMPTY_RECORD;
   return {
     ...stats,
-    [mode]: {
-      plays: prev.plays + 1,
-      bestStreak: Math.max(prev.bestStreak, session.streak || 0),
-      bestLevel: Math.max(prev.bestLevel, session.level || 0),
-      bestLength: Math.max(prev.bestLength, session.length || 0),
+    practice: {
+      ...stats.practice,
+      [mode]: {
+        ...modePractice,
+        [configKey]: { plays: prev.plays + 1, best: Math.max(prev.best, score) },
+      },
     },
   };
 };
 
-// Each mode is scored on the one number the player is actually pushing on, so the
-// headline stat, the personal best and the "new best" test all agree.
-export const headlineStatKey = (mode, adaptiveOn) => {
-  if (mode === "progressive") return "bestLength";
-  if (mode === "pattern" && adaptiveOn) return "bestLevel";
-  return "bestStreak";
-};
-
-export const HEADLINE_LABEL = {
-  bestStreak: "streak",
-  bestLevel: "level",
-  bestLength: "longest",
-};
+export const recordFor = (stats, { mode, intent, configKey }) =>
+  intent === "challenge"
+    ? stats.challenge[mode] || EMPTY_RECORD
+    : stats.practice[mode]?.[configKey] || EMPTY_RECORD;
