@@ -23,6 +23,10 @@ import {
   Flag,
   Trophy,
   Dumbbell,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  BarChart3,
 } from "lucide-react";
 import {
   loadSettings,
@@ -33,11 +37,13 @@ import {
   recordFor,
   practiceKey,
 } from "./storage.js";
+import { TutorialPlayer, TUTORIAL_SCRIPTS, MODE_RULES } from "./tutorial.jsx";
 import {
   ADAPTIVE_MIN_BOARD,
   ADAPTIVE_MAX_BOARD,
   computeAdaptiveClear,
   computeAdaptiveFail,
+  remapIndex,
   rungParams,
   rungDescription,
   CHALLENGE_DISPLAY_TIME,
@@ -101,70 +107,37 @@ const MODE_BLURB = {
   queue: "A queue of patterns keeps growing — reproduce the oldest one while a new one joins the back.",
 };
 
+// practiceKey() is a machine identity ("boardSize=6,level=10,..."); the Records screen
+// needs it back as something readable.
+const CONFIG_LABELS = {
+  boardSize: (v) => `${v}×${v}`,
+  level: (v) => `${v} cells`,
+  displayTime: (v) => `${v}s`,
+  queueSize: (v) => `${v} deep`,
+  startLength: (v) => `from ${v}`,
+  increment: (v) => `+${v}/round`,
+  adaptive: (v) => (v === "true" ? "adaptive" : null),
+  allowRepeat: (v) => (v === "true" ? "repeats" : "no repeats"),
+};
+
+const describeConfigKey = (key) =>
+  key
+    .split(",")
+    .map((pair) => {
+      const [k, v] = pair.split("=");
+      return CONFIG_LABELS[k] ? CONFIG_LABELS[k](v) : null;
+    })
+    .filter(Boolean)
+    .join(" · ");
+
+const FONT = "'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif";
+
 const SUCCESS_HOLD = 480; // how long the success glow lingers before reset
 const RESET_ANIM = 700; // how long the flip-down reset wave takes
 const RESIZE_HOLD = 900; // how long the board-size-change transition holds, cells already blank
 
-// Tutorial demos run on a fixed illustrative 4x4 grid, independent of real settings.
-// Each frame: which cells are lit (highlight/success), a caption, and how long to hold it.
-const TUTORIAL_SCRIPTS = {
-  pattern: [
-    { highlight: [1, 6, 11], caption: "Memorize the glowing cells", duration: 1300 },
-    { caption: "Now find them from memory", duration: 450 },
-    { success: [1], caption: "Now find them from memory", duration: 450 },
-    { success: [1, 6], caption: "Now find them from memory", duration: 450 },
-    { success: [1, 6, 11], caption: "Nice! Found them all", duration: 1000 },
-    { caption: "", duration: 450 },
-  ],
-  sequence: [
-    { highlight: [2], caption: "Watch the order light up...", duration: 650 },
-    { caption: "Watch the order light up...", duration: 320 },
-    { highlight: [9], caption: "Watch the order light up...", duration: 650 },
-    { caption: "Watch the order light up...", duration: 320 },
-    { highlight: [7], caption: "Watch the order light up...", duration: 650 },
-    { caption: "Repeat it back, in order", duration: 400 },
-    { success: [2], caption: "Repeat it back, in order", duration: 450 },
-    { success: [2, 9], caption: "Repeat it back, in order", duration: 450 },
-    { success: [2, 9, 7], caption: "Perfect sequence!", duration: 1000 },
-    { caption: "", duration: 450 },
-  ],
-  progressive: [
-    { highlight: [5], caption: "A short sequence to start...", duration: 600 },
-    { caption: "A short sequence to start...", duration: 320 },
-    { highlight: [10], caption: "A short sequence to start...", duration: 600 },
-    { caption: "Repeat it back", duration: 450 },
-    { success: [5], caption: "Repeat it back", duration: 400 },
-    { success: [5, 10], caption: "Repeat it back", duration: 500 },
-    { caption: "Get it right and it grows by one", duration: 550 },
-    { highlight: [5], caption: "Same sequence, from the top...", duration: 550 },
-    { caption: "Same sequence, from the top...", duration: 320 },
-    { highlight: [10], caption: "Same sequence, from the top...", duration: 550 },
-    { caption: "...plus one new step", duration: 320 },
-    { highlight: [2], caption: "...plus one new step", duration: 600 },
-    { caption: "Repeat all three", duration: 350 },
-    { success: [5], caption: "Repeat all three", duration: 350 },
-    { success: [5, 10], caption: "Repeat all three", duration: 350 },
-    { success: [5, 10, 2], caption: "It keeps growing — how far can you go?", duration: 1100 },
-    { caption: "", duration: 500 },
-  ],
-  queue: [
-    { highlight: [0, 13], caption: "Patterns flash, one after another...", duration: 650 },
-    { caption: "Patterns flash, one after another...", duration: 320 },
-    { highlight: [6, 11], caption: "Patterns flash, one after another...", duration: 650 },
-    { caption: "Patterns flash, one after another...", duration: 320 },
-    { highlight: [2, 9], caption: "Patterns flash, one after another...", duration: 650 },
-    { caption: "Reproduce the OLDEST one first", duration: 450 },
-    { success: [0], caption: "Reproduce the oldest one first", duration: 400 },
-    { success: [0, 13], caption: "Got it! A new one joins the back...", duration: 800 },
-    { caption: "A new one joins the back...", duration: 450 },
-    { highlight: [4, 15], caption: "...and flashes once", duration: 650 },
-    { caption: "Now reproduce the next oldest", duration: 500 },
-    { success: [6], caption: "Now reproduce the next oldest", duration: 400 },
-    { success: [6, 11], caption: "Keep the queue moving!", duration: 1000 },
-    { caption: "", duration: 500 },
-  ],
-};
-
+// Every non-game screen shares this shell so the menu, records and tutorial feel like one
+// app rather than three overlays.
 function Stepper({ icon, value, onChange, min, max, step = 1, format, label }) {
   const s = typeof step === "function" ? step(value) : step;
   const dec = () => onChange(Math.max(min, +(value - s).toFixed(2)));
@@ -317,54 +290,6 @@ function ToggleRow({ icon, checked, onChange, label = "Toggle" }) {
   );
 }
 
-// Challenge vs Practice is the app's central distinction — ranked, locked settings on one
-// side; free configuration on the other — so it gets a real segmented control rather than
-// being buried as a switch in Settings.
-function IntentToggle({ intent, onChange }) {
-  const options = [
-    { key: "challenge", icon: <Trophy size={14} />, label: "Challenge" },
-    { key: "practice", icon: <Dumbbell size={14} />, label: "Practice" },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label="Run type"
-      style={{ display: "flex", gap: 4, background: C.bg, borderRadius: 14, padding: 4 }}
-    >
-      {options.map((o) => {
-        const active = intent === o.key;
-        return (
-          <button
-            key={o.key}
-            onClick={() => onChange(o.key)}
-            aria-pressed={active}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "9px 0",
-              borderRadius: 11,
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 700,
-              background: active ? C.surface : "transparent",
-              color: active ? C.ink : C.mutedInk,
-              boxShadow: active ? "0 1px 3px rgba(59,63,81,0.14)" : "none",
-              transition: "background 150ms ease, color 150ms ease",
-            }}
-          >
-            {o.icon}
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function ModeCarousel({ mode, onChange, options }) {
   const cardRefs = useRef({});
   useEffect(() => {
@@ -395,153 +320,93 @@ function ModeCarousel({ mode, onChange, options }) {
   );
 }
 
-function TutorialPlayer({ script }) {
-  const [frameIdx, setFrameIdx] = useState(0);
-
-  useEffect(() => {
-    setFrameIdx(0);
-    let idx = 0;
-    let cancelled = false;
-    let id;
-    const step = () => {
-      if (cancelled) return;
-      setFrameIdx(idx);
-      id = setTimeout(() => {
-        idx = (idx + 1) % script.length;
-        step();
-      }, script[idx].duration);
-    };
-    step();
-    return () => {
-      cancelled = true;
-      clearTimeout(id);
-    };
-  }, [script]);
-
-  const frame = script[frameIdx] || script[0];
-  const size = 4;
-  const total = size * size;
-  const highlightSet = new Set(frame.highlight || []);
-  const successSet = new Set(frame.success || []);
-
+function Screen({ title, onBack, children, footer }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 168, aspectRatio: "1 / 1" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${size}, 1fr)`,
-            gridTemplateRows: `repeat(${size}, 1fr)`,
-            gap: 6,
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          {Array.from({ length: total }, (_, i) => {
-            const isSuccess = successSet.has(i);
-            const isHighlight = highlightSet.has(i);
-            const faceUp = isSuccess || isHighlight;
-            const tone = isSuccess ? "success" : isHighlight ? "highlight" : "idle";
-            return (
-              <Card
-                key={i}
-                faceUp={faceUp}
-                tone={tone}
-                content={isSuccess ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
-                badge={null}
-                clickable={false}
-                label="demo cell"
-                onClick={() => {}}
-                transitionDelay="0ms"
-                shake={false}
-              />
-            );
-          })}
-        </div>
-      </div>
-      <div
-        style={{
-          minHeight: 34,
-          textAlign: "center",
-          color: C.ink,
-          fontSize: 13,
-          fontWeight: 600,
-          lineHeight: 1.35,
-          padding: "0 8px",
-        }}
-      >
-        {frame.caption}
+    <div
+      style={{
+        minHeight: "100%",
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        background: C.bg,
+        fontFamily: FONT,
+        padding: 20,
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }}>
+        {(title || onBack) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 40 }}>
+            {onBack && (
+              <button
+                onClick={onBack}
+                aria-label="Back"
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 13,
+                  border: "none",
+                  background: C.surface,
+                  boxShadow: "0 2px 8px rgba(59,63,81,0.07)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: C.ink,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
+            <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: C.ink }}>{title}</h1>
+          </div>
+        )}
+        {children}
+        {footer}
       </div>
     </div>
   );
 }
 
-function TutorialModal({ mode, onModeChange, onClose }) {
+function MenuButton({ icon, label, description, onClick, accent }) {
   return (
-    <div
-      className="settings-overlay"
+    <button
+      onClick={onClick}
       style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(59,63,81,0.35)",
         display: "flex",
         alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-        padding: 20,
+        gap: 14,
+        width: "100%",
+        textAlign: "left",
+        background: C.surface,
+        border: "none",
+        borderRadius: 20,
+        padding: "16px 18px",
+        boxShadow: "0 2px 12px rgba(59,63,81,0.07)",
+        cursor: "pointer",
       }}
-      onClick={onClose}
     >
       <div
-        className="settings-sheet"
-        onClick={(e) => e.stopPropagation()}
         style={{
-          background: C.surface,
-          borderRadius: 24,
-          padding: 20,
-          width: "100%",
-          maxWidth: 360,
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          background: accent ? C.accent : C.accentSoft,
+          color: accent ? "#fff" : C.accent,
           display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          boxShadow: "0 12px 40px rgba(59,63,81,0.25)",
-          maxHeight: "85vh",
-          overflowY: "auto",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.ink, fontWeight: 700, fontSize: 16 }}>
-            <HelpCircle size={18} />
-            How to Play
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 10,
-              border: "none",
-              background: C.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: C.mutedInk,
-              cursor: "pointer",
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <ModeCarousel mode={mode} onChange={onModeChange} options={MODE_OPTIONS} />
-
-        <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 12, lineHeight: 1.4 }}>{MODE_BLURB[mode]}</div>
-
-        <div style={{ background: C.bg, borderRadius: 18, padding: "18px 12px" }}>
-          <TutorialPlayer script={TUTORIAL_SCRIPTS[mode]} />
-        </div>
+        {icon}
       </div>
-    </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{label}</div>
+        <div style={{ fontSize: 12, color: C.mutedInk, lineHeight: 1.35, marginTop: 2 }}>{description}</div>
+      </div>
+    </button>
   );
 }
 
@@ -553,8 +418,9 @@ function DrainBar({ duration, active, barKey }) {
     const raf1 = requestAnimationFrame(() => {
       requestAnimationFrame(() => setWidth("0%"));
     });
+    // Intentionally not depending on `duration`: changing it mid-drain would restart the
+    // animation rather than let the current round's bar finish.
     return () => cancelAnimationFrame(raf1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [barKey, active]);
   return (
     <div style={{ height: 8, borderRadius: 6, background: C.accentSoft, overflow: "hidden" }}>
@@ -641,7 +507,10 @@ export default function MemoryGridTrainer() {
   const [config, setConfig] = useState(restored.config);
   const [stats, setStats] = useState(() => loadStats(Object.keys(DEFAULT_CONFIG)));
   const [showSettings, setShowSettings] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
+  // 'menu' is the landing screen; 'modes' picks a mode for the chosen intent. The tutorial
+  // is a screen rather than an overlay so the Queue demo has room for its queue strip.
+  const [screen, setScreen] = useState("menu"); // menu | modes | game | records | tutorial
+  const [tutorialMode, setTutorialMode] = useState("pattern");
 
   const [phase, setPhase] = useState("idle"); // idle, memorize, recall, success, resetting, gameover
   const [pattern, setPattern] = useState(new Set());
@@ -784,6 +653,10 @@ export default function MemoryGridTrainer() {
     const rQueue = overrides?.queueSize ?? queueSize;
     const rGrowBy = overrides?.growBy ?? 1;
     const rTotal = rBoard * rBoard;
+    // Set when a Challenge rung widens the board. Anything the player is still holding in
+    // memory has to move with it, keeping its row and column on the larger grid.
+    const grewFrom = overrides?.fromBoardSize && overrides.fromBoardSize !== rBoard ? overrides.fromBoardSize : null;
+    const carryCells = (cells) => (grewFrom ? cells.map((i) => remapIndex(i, grewFrom, rBoard)) : cells);
 
     if (mode === "pattern") {
       const p = generatePatternOfSize(rLevel, rTotal);
@@ -800,12 +673,20 @@ export default function MemoryGridTrainer() {
       const stepDur = displayTime * 1000;
       const gap = 200;
 
-      // Reveal the patterns joining the back: the whole queue on the opening round, and
+      // The patterns joining the back: the whole queue on the opening round, and
       // afterwards one replacement plus however many extra a deepening rung asked for.
-      const incoming = isFirstRound
-        ? Array.from({ length: rQueue }, () => generatePatternOfSize(rLevel, rTotal))
-        : Array.from({ length: rGrowBy }, () => generatePatternOfSize(rLevel, rTotal));
-      const nextQueue = isFirstRound ? incoming : [...queueList.slice(1), ...incoming];
+      const fresh = Array.from({ length: isFirstRound ? rQueue : rGrowBy }, () =>
+        generatePatternOfSize(rLevel, rTotal)
+      );
+      const kept = isFirstRound
+        ? []
+        : queueList.slice(1).map((p) => new Set(carryCells([...p])));
+      const nextQueue = [...kept, ...fresh];
+
+      // Queued patterns are normally never shown again, so a board that grows underneath
+      // them would be unfair — the player memorized them at a different size. On a resize
+      // the whole queue flashes again on the new board instead of just the new arrivals.
+      const incoming = grewFrom ? nextQueue : fresh;
 
       setQueueList(nextQueue);
       setPattern(nextQueue[0]);
@@ -823,7 +704,12 @@ export default function MemoryGridTrainer() {
       const seq = isProgressive
         ? isFirstRound
           ? Array.from({ length: startLength }, () => Math.floor(Math.random() * rTotal))
-          : [...sequence, ...Array.from({ length: increment }, () => Math.floor(Math.random() * rTotal))]
+          : [
+              // Safe to widen the board here: the whole sequence replays every round, so
+              // the player re-learns the carried steps at the new size straight away.
+              ...carryCells(sequence),
+              ...Array.from({ length: increment }, () => Math.floor(Math.random() * rTotal)),
+            ]
         : generateSequence(rLevel, rTotal);
       setSequence(seq);
       setInputIndex(0);
@@ -914,7 +800,11 @@ export default function MemoryGridTrainer() {
   const advanceChallengeRung = () => {
     const nextRung = Math.min(rung + 1, MAX_RUNG[mode]);
     const next = rungParams(mode, nextRung);
-    const overrides = { ...next, growBy: mode === "queue" ? next.queueSize - queueSize + 1 : 1 };
+    const overrides = {
+      ...next,
+      fromBoardSize: boardSize,
+      growBy: mode === "queue" ? next.queueSize - queueSize + 1 : 1,
+    };
     advanceTo(overrides, () => setRung(nextRung));
   };
 
@@ -1017,12 +907,6 @@ export default function MemoryGridTrainer() {
     resetToIdle();
   };
 
-  // Same hazard as changeMode: Challenge and Practice resolve the board from different
-  // sources, so the in-flight round has to be torn down before switching.
-  const changeIntent = (key) => {
-    setIntent(key);
-    resetToIdle();
-  };
 
   // Settings can change board size/level live; if a round were still running underneath,
   // those edits would resize the grid out from under it. So opening Settings immediately
@@ -1121,7 +1005,7 @@ export default function MemoryGridTrainer() {
       ? `${configBoardSize}×${configBoardSize}, ${configLevel} cells, ${modeConfig.queueSize} deep, ${modeConfig.displayTime}s`
       : `${configBoardSize}×${configBoardSize}, ${configLevel} ${mode === "sequence" ? "steps" : "cells"}, ${modeConfig.displayTime}s`;
 
-  let barNode = null;
+  let barNode;
   if (phase === "memorize" && mode === "pattern") {
     barNode = <DrainBar duration={displayTime} active barKey={barKey} />;
   } else if (phase === "memorize" && mode === "queue") {
@@ -1160,6 +1044,303 @@ export default function MemoryGridTrainer() {
     barNode = <div style={{ height: 8 }} />;
   }
 
+  // Leaving the game for any other screen tears the run down first, banking whatever it
+  // was worth — same rule as switching mode or opening Settings.
+  const goHome = () => {
+    resetToIdle();
+    setScreen("menu");
+  };
+
+  const openTutorial = (fromMode) => {
+    setTutorialMode(fromMode || mode);
+    setScreen("tutorial");
+  };
+
+  if (screen === "menu") {
+    return (
+      <Screen>
+        <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: C.ink, letterSpacing: -0.4 }}>
+            Memory Trainer
+          </h1>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: C.mutedInk }}>
+            Four ways to stretch how much you can hold at once.
+          </p>
+        </div>
+        <MenuButton
+          accent
+          icon={<Trophy size={21} />}
+          label="Challenge"
+          description="Ranked. Locked settings, one step harder each round."
+          onClick={() => {
+            setIntent("challenge");
+            setScreen("modes");
+          }}
+        />
+        <MenuButton
+          icon={<Dumbbell size={21} />}
+          label="Training"
+          description="Your own settings, unranked. Warm up or drill a weak spot."
+          onClick={() => {
+            setIntent("practice");
+            setScreen("modes");
+          }}
+        />
+        <MenuButton
+          icon={<BarChart3 size={21} />}
+          label="Records"
+          description="Challenge records and your training bests."
+          onClick={() => setScreen("records")}
+        />
+        <MenuButton
+          icon={<BookOpen size={21} />}
+          label="How to play"
+          description="A walkthrough of each mode."
+          onClick={() => openTutorial(mode)}
+        />
+      </Screen>
+    );
+  }
+
+  if (screen === "modes") {
+    return (
+      <Screen title={isChallenge ? "Challenge" : "Training"} onBack={() => setScreen("menu")}>
+        <div style={{ fontSize: 12, color: C.mutedInk, lineHeight: 1.5, padding: "0 4px" }}>
+          {isChallenge
+            ? "Settings are fixed so records stay comparable. Each run climbs one step per cleared round and ends when you slip."
+            : "Pick a mode, then tune it however you like in Settings. Bests are kept per configuration and stay out of the records."}
+        </div>
+        {MODE_OPTIONS.map((o) => {
+          const modeRecord = recordFor(stats, {
+            mode: o.key,
+            intent,
+            configKey: practiceKey(config[o.key]),
+          });
+          return (
+            <button
+              key={o.key}
+              onClick={() => {
+                changeMode(o.key);
+                setScreen("game");
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                width: "100%",
+                textAlign: "left",
+                background: C.surface,
+                border: "none",
+                borderRadius: 20,
+                padding: "14px 16px",
+                boxShadow: "0 2px 12px rgba(59,63,81,0.07)",
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 13,
+                  background: C.accentSoft,
+                  color: C.accent,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {o.icon}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>{o.label}</div>
+                <div style={{ fontSize: 12, color: C.mutedInk, lineHeight: 1.35, marginTop: 2 }}>
+                  {MODE_BLURB[o.key]}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    marginTop: 6,
+                    fontSize: 11,
+                    color: modeRecord.plays > 0 ? C.ink : C.mutedInk,
+                  }}
+                >
+                  <Trophy size={11} color={modeRecord.plays > 0 ? C.gold : C.heartEmpty} />
+                  {modeRecord.plays > 0 ? (
+                    <span>
+                      {isChallenge ? "Record" : "Best here"} <strong>{modeRecord.best}</strong>
+                      {isChallenge && modeRecord.best > 0 ? ` · ${rungDescription(o.key, modeRecord.best)}` : ""}
+                    </span>
+                  ) : (
+                    <span style={{ opacity: 0.8 }}>Not played yet</span>
+                  )}
+                </div>
+              </div>
+              <ChevronRight size={18} color={C.mutedInk} style={{ flexShrink: 0 }} />
+            </button>
+          );
+        })}
+      </Screen>
+    );
+  }
+
+  if (screen === "records") {
+    return (
+      <Screen title="Records" onBack={() => setScreen("menu")}>
+        <div
+          style={{
+            background: C.surface,
+            borderRadius: 20,
+            padding: 16,
+            boxShadow: "0 2px 12px rgba(59,63,81,0.07)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+            <Trophy size={15} color={C.gold} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Challenge records</span>
+          </div>
+          <div style={{ fontSize: 11, color: C.mutedInk, marginBottom: 12, lineHeight: 1.4 }}>
+            Rungs cleared on locked settings — comparable across every run.
+          </div>
+          {MODE_OPTIONS.map((o) => {
+            const r = stats.challenge[o.key];
+            return (
+              <div
+                key={o.key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 0",
+                  borderTop: `1px solid ${C.bg}`,
+                }}
+              >
+                <div style={{ color: C.accent, display: "flex" }}>{o.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{o.label}</div>
+                  {r.best > 0 && (
+                    <div style={{ fontSize: 11, color: C.mutedInk }}>{rungDescription(o.key, r.best)}</div>
+                  )}
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: r.best > 0 ? C.ink : C.heartEmpty }}>
+                    {r.best}
+                  </div>
+                  <div style={{ fontSize: 10, color: C.mutedInk }}>
+                    {r.plays} {r.plays === 1 ? "run" : "runs"}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          style={{
+            background: C.surface,
+            borderRadius: 20,
+            padding: 16,
+            boxShadow: "0 2px 12px rgba(59,63,81,0.07)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+            <Dumbbell size={15} color={C.accent} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Training bests</span>
+          </div>
+          <div style={{ fontSize: 11, color: C.mutedInk, marginBottom: 12, lineHeight: 1.4 }}>
+            Rounds cleared, kept separately for each configuration you've played.
+          </div>
+          {MODE_OPTIONS.every((o) => Object.keys(stats.practice[o.key] || {}).length === 0) ? (
+            <div style={{ fontSize: 12, color: C.mutedInk, paddingTop: 8, borderTop: `1px solid ${C.bg}` }}>
+              No training runs yet.
+            </div>
+          ) : (
+            MODE_OPTIONS.map((o) => {
+              const entries = Object.entries(stats.practice[o.key] || {});
+              if (entries.length === 0) return null;
+              return (
+                <div key={o.key} style={{ paddingTop: 9, borderTop: `1px solid ${C.bg}` }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: C.ink,
+                      marginBottom: 5,
+                    }}
+                  >
+                    <span style={{ color: C.accent, display: "flex" }}>{o.icon}</span>
+                    {o.label}
+                  </div>
+                  {entries
+                    .sort((a, b) => b[1].best - a[1].best)
+                    .map(([key, rec]) => (
+                      <div
+                        key={key}
+                        style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          padding: "3px 0 3px 22px",
+                        }}
+                      >
+                        <span style={{ fontSize: 11, color: C.mutedInk, wordBreak: "break-word" }}>
+                          {describeConfigKey(key)}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, flexShrink: 0 }}>
+                          {rec.best}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Screen>
+    );
+  }
+
+  if (screen === "tutorial") {
+    return (
+      <Screen title="How to play" onBack={() => setScreen(isPlaying || phase === "gameover" ? "game" : "menu")}>
+        <div style={{ background: C.surface, borderRadius: 20, padding: "16px 0", boxShadow: "0 2px 12px rgba(59,63,81,0.07)" }}>
+          <ModeCarousel mode={tutorialMode} onChange={setTutorialMode} options={MODE_OPTIONS} />
+          <div style={{ padding: "6px 20px 0" }}>
+            <div style={{ background: C.bg, borderRadius: 18, padding: "18px 12px" }}>
+              <TutorialPlayer mode={tutorialMode} script={TUTORIAL_SCRIPTS[tutorialMode]} C={C} Card={Card} />
+            </div>
+            <ul style={{ margin: "14px 0 0", padding: "0 0 0 18px", color: C.ink, fontSize: 12.5, lineHeight: 1.65 }}>
+              {MODE_RULES[tutorialMode].map((line) => (
+                <li key={line} style={{ marginBottom: 3 }}>
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <div
+              style={{
+                marginTop: 12,
+                fontSize: 11.5,
+                color: C.mutedInk,
+                lineHeight: 1.5,
+                borderTop: `1px solid ${C.bg}`,
+                paddingTop: 10,
+              }}
+            >
+              <strong style={{ color: C.ink }}>Challenge</strong> climbs {CHALLENGE_AXIS[tutorialMode]}, one step
+              per cleared round.
+            </div>
+          </div>
+        </div>
+      </Screen>
+    );
+  }
+
   return (
     <div
       style={{
@@ -1185,6 +1366,26 @@ export default function MemoryGridTrainer() {
             boxShadow: "0 2px 10px rgba(59,63,81,0.06)",
           }}
         >
+          <button
+            onClick={goHome}
+            aria-label="Back to menu"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 12,
+              border: "none",
+              background: C.bg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: C.ink,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+
           <div key={hearts} className="hearts-row pulse">
             {[0, 1, 2].map((i) => (
               <Heart
@@ -1234,7 +1435,7 @@ export default function MemoryGridTrainer() {
               </button>
             ) : (
               <button
-                onClick={() => setShowTutorial(true)}
+                onClick={() => openTutorial(mode)}
                 aria-label="How to play"
                 style={{
                   width: 36,
@@ -1391,13 +1592,40 @@ export default function MemoryGridTrainer() {
               gap: 10,
             }}
           >
-            <ModeCarousel mode={mode} onChange={changeMode} options={MODE_OPTIONS} />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                color: C.ink,
+                fontWeight: 700,
+                fontSize: 15,
+              }}
+            >
+              <span style={{ color: C.accent, display: "flex" }}>
+                {MODE_OPTIONS.find((o) => o.key === mode)?.icon}
+              </span>
+              {MODE_OPTIONS.find((o) => o.key === mode)?.label}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: isChallenge ? C.accentSoft : C.bg,
+                  color: isChallenge ? C.accent : C.mutedInk,
+                  borderRadius: 999,
+                  padding: "3px 9px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                {isChallenge ? <Trophy size={11} /> : <Dumbbell size={11} />}
+                {isChallenge ? "Challenge" : "Training"}
+              </span>
+            </div>
             <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 12, lineHeight: 1.4, padding: "0 20px" }}>
               {MODE_BLURB[mode]}
-            </div>
-
-            <div style={{ padding: "0 20px" }}>
-              <IntentToggle intent={intent} onChange={changeIntent} />
             </div>
 
             <div style={{ textAlign: "center", padding: "0 20px" }}>
@@ -1514,7 +1742,10 @@ export default function MemoryGridTrainer() {
               </div>
             )}
             <button
-              onClick={resetToIdle}
+              onClick={() => {
+                resetToIdle();
+                setScreen("modes");
+              }}
               style={{
                 width: 52,
                 height: 52,
@@ -1592,10 +1823,6 @@ export default function MemoryGridTrainer() {
                 <X size={16} />
               </button>
             </div>
-
-            <ModeCarousel mode={mode} onChange={changeMode} options={MODE_OPTIONS} />
-
-            <IntentToggle intent={intent} onChange={changeIntent} />
 
             {/* A Challenge fixes every setting below, so say that plainly rather than
                 showing steppers that silently have no effect on the next run. */}
@@ -1722,9 +1949,7 @@ export default function MemoryGridTrainer() {
         </div>
       )}
 
-      {showTutorial && (
-        <TutorialModal mode={mode} onModeChange={changeMode} onClose={() => setShowTutorial(false)} />
-      )}
+
     </div>
   );
 }

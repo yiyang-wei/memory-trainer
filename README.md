@@ -25,14 +25,30 @@ single strongest difficulty lever — and the run climbs exactly one rung per cl
 ending on the first failed round. The score is rungs cleared, so it is directly comparable
 between players and across sessions.
 
-Each mode climbs the one axis that defines what it actually tests:
+Each mode climbs the axes that define what it actually tests:
 
 | Mode | Rung 1 | Climbs | Top rung |
 | --- | --- | --- | --- |
-| **Pattern** | 2 cells on 3×3 | cells to recall, board grows underneath | 31 (32 cells on 8×8) |
-| **Sequence** | 2 steps on 3×3 | sequence length, fresh sequence each round | 29 (30 steps) |
-| **Progressive** | 2 steps on 3×3 | sequence length, same sequence grown | 29 (30 steps) |
-| **Queue** | 2 patterns on 3×3 | queue depth — patterns held at once | 9 (10 patterns) |
+| **Pattern** | 2 cells on 3×3 | cells to recall, board widening underneath | 31 (32 cells on 8×8) |
+| **Sequence** | 2 steps on 3×3 | length, board widening at 6 / 9 / 12 / 15 / 18 steps | 21 (22 steps on 8×8) |
+| **Progressive** | 2 steps on 3×3 | same, but one sequence grown in place | 21 (22 steps on 8×8) |
+| **Queue** | 2 patterns of 3 cells on 3×3 | depth, pattern size and board, rotating | 17 (8 patterns of 8 cells on 8×8) |
+
+Every ladder widens the board alongside the axis it is really measuring, because a single
+axis stops biting on its own — a 30-step sequence on a 3×3 board is tedious rather than
+hard. Queue is the one mode with three axes worth climbing, so its ladder is written out
+explicitly in `src/ladder.js`: each rung bumps exactly one of depth / pattern size / board,
+rotating so no axis runs ahead.
+
+Growing the board mid-run has to keep already-memorized cells where the player left them,
+so `remapIndex` preserves a cell's row and column and the grid simply widens around it.
+The two modes need different handling:
+
+- **Progressive** replays its whole sequence every round, so the player re-learns the
+  carried steps at the new size immediately. Remapping alone is enough.
+- **Queue** never re-shows a queued pattern, so remapping alone would be unfair — the
+  player memorized those at a different size. On a resize the entire queue flashes again
+  on the new board instead of just the new arrivals.
 
 **Practice** is everything in Settings: any board, level, display time you like. Bests are
 kept per exact configuration (so 6×6/10-cells and 7×7/10-cells are separate entries) and
@@ -53,14 +69,38 @@ below the floor shrinks it back to exactly the rung below.
 Adaptive practice moves two clears up / two fails down along that ladder. A Challenge
 walks the same rungs one per cleared round and never descends.
 
+## Screens
+
+`MemoryGridTrainer` routes on a `screen` state rather than stacking overlays:
+
+```
+menu ─┬─ Challenge ─┐
+      ├─ Training ──┴─ modes (mode list + record per mode) ─ game
+      ├─ records
+      └─ tutorial            (also reachable from the game's help button,
+                              which returns to the game rather than the menu)
+```
+
+Leaving the game for any other screen tears the run down through `resetToIdle`, which
+banks whatever it was worth rather than silently dropping it.
+
 ## Development
 
 ```sh
 npm install
 npm run dev        # dev server on :5173, --host so phones on the LAN can reach it
-npm run build      # production build into dist/
+npm run lint       # see below — this is not optional
+npm run build      # lint, then production build into dist/
 npm run preview    # serve dist/ locally — needed to exercise the service worker
 ```
+
+`npm run build` runs ESLint first, and that ordering is deliberate. Vite resolves JSX
+identifiers at runtime, not build time, so a component that is referenced but never
+defined builds perfectly and then throws a `ReferenceError` the moment that screen
+renders. A green build is not evidence the app runs; `no-undef` is what catches it.
+
+(`eslint-plugin-react` has no ESLint 10 build yet, so `no-unused-vars` is relaxed for
+capitalised names — JSX references read as unused without that plugin.)
 
 The service worker is only active in production builds, so `npm run dev` never serves
 stale cached assets.

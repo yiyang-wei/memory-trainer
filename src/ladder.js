@@ -82,21 +82,58 @@ export const CHALLENGE_DISPLAY_TIME = {
   queue: 1.5,
 };
 
-// Each mode climbs one axis, the one that defines what that mode actually tests.
+// Each mode climbs the axes that define what it actually tests. Growing a single axis
+// forever stops biting — a 30-step sequence on a 3x3 board is tedious rather than hard —
+// so every ladder widens the board alongside the axis it is really measuring.
 export const CHALLENGE_AXIS = {
-  pattern: "cells to recall",
-  sequence: "sequence length",
-  progressive: "sequence length",
-  queue: "patterns held at once",
+  pattern: "cells to recall, on a growing board",
+  sequence: "sequence length, on a growing board",
+  progressive: "sequence length, on a growing board",
+  queue: "queue depth, pattern size and board",
 };
+
+// How long a sequence a board can carry before the board itself should grow. Past these
+// the limit stops being memory and starts being the tedium of tapping out a long run of
+// cells in a cramped grid.
+const SEQUENCE_CAPACITY = { 3: 6, 4: 9, 5: 12, 6: 15, 7: 18, 8: 22 };
+
+const boardForSequenceLength = (len) => {
+  for (let b = ADAPTIVE_MIN_BOARD; b < ADAPTIVE_MAX_BOARD; b++) {
+    if (len <= SEQUENCE_CAPACITY[b]) return b;
+  }
+  return ADAPTIVE_MAX_BOARD;
+};
+
+// Queue is the one mode with three axes worth climbing, so its ladder is written out
+// rather than computed: each rung bumps exactly one of depth / pattern size / board, and
+// they rotate so no single axis runs ahead of the others.
+const QUEUE_LADDER = [
+  { boardSize: 3, level: 3, queueSize: 2 },
+  { boardSize: 3, level: 3, queueSize: 3 },
+  { boardSize: 3, level: 4, queueSize: 3 },
+  { boardSize: 4, level: 4, queueSize: 3 },
+  { boardSize: 4, level: 4, queueSize: 4 },
+  { boardSize: 4, level: 5, queueSize: 4 },
+  { boardSize: 5, level: 5, queueSize: 4 },
+  { boardSize: 5, level: 5, queueSize: 5 },
+  { boardSize: 5, level: 6, queueSize: 5 },
+  { boardSize: 6, level: 6, queueSize: 5 },
+  { boardSize: 6, level: 6, queueSize: 6 },
+  { boardSize: 6, level: 7, queueSize: 6 },
+  { boardSize: 7, level: 7, queueSize: 6 },
+  { boardSize: 7, level: 7, queueSize: 7 },
+  { boardSize: 7, level: 8, queueSize: 7 },
+  { boardSize: 8, level: 8, queueSize: 7 },
+  { boardSize: 8, level: 8, queueSize: 8 },
+];
 
 // Beyond these the ramp would stop biting (a full board, an unreadable queue), so the
 // rung clamps. All of them sit far past any realistic human span.
 export const MAX_RUNG = {
   pattern: levelCapForBoard(ADAPTIVE_MAX_BOARD) - 1, // level 2..32
-  sequence: 29, // length 2..30
-  progressive: 29,
-  queue: 9, // depth 2..10
+  sequence: SEQUENCE_CAPACITY[ADAPTIVE_MAX_BOARD] - 1, // length 2..22
+  progressive: SEQUENCE_CAPACITY[ADAPTIVE_MAX_BOARD] - 1,
+  queue: QUEUE_LADDER.length,
 };
 
 // Rung 1 is the gentlest round of a Challenge; every mode starts at its own floor and
@@ -110,15 +147,20 @@ export const rungParams = (mode, rung) => {
       const level = n + 1;
       return { boardSize: boardForLevel(level), level };
     }
-    case "sequence":
-      // Fresh sequence each round on a fixed board — immediate span, not rehearsal.
-      return { boardSize: 3, level: n + 1 };
-    case "progressive":
-      // The same sequence grows, so the round length follows from the rung.
-      return { boardSize: 3, level: n + 1, startLength: 2, increment: 1 };
+    case "sequence": {
+      // Fresh sequence each round — immediate span, not rehearsal.
+      const level = n + 1;
+      return { boardSize: boardForSequenceLength(level), level };
+    }
+    case "progressive": {
+      // The same sequence grows in place, so the round length follows from the rung. The
+      // board can still widen underneath it: the whole sequence replays every round, so
+      // the player immediately re-learns it at the new size (see remapIndex in the view).
+      const level = n + 1;
+      return { boardSize: boardForSequenceLength(level), level, startLength: 2, increment: 1 };
+    }
     case "queue":
-      // Pattern size stays put; the queue itself deepens.
-      return { boardSize: 3, level: 4, queueSize: n + 1 };
+      return { ...QUEUE_LADDER[n - 1] };
     default:
       return { boardSize: 3, level: 2 };
   }
@@ -128,7 +170,13 @@ export const rungParams = (mode, rung) => {
 export const rungDescription = (mode, rung) => {
   if (rung < 1) return null;
   const p = rungParams(mode, rung);
-  if (mode === "queue") return `${p.queueSize} patterns on ${p.boardSize}×${p.boardSize}`;
-  if (mode === "pattern") return `${p.level} cells on ${p.boardSize}×${p.boardSize}`;
-  return `${p.level} steps on ${p.boardSize}×${p.boardSize}`;
+  const board = `${p.boardSize}×${p.boardSize}`;
+  if (mode === "queue") return `${p.queueSize} patterns of ${p.level} cells on ${board}`;
+  if (mode === "pattern") return `${p.level} cells on ${board}`;
+  return `${p.level} steps on ${board}`;
 };
+
+// Growing the board mid-run has to keep already-memorized cells where the player left
+// them, so a cell keeps its row and column and the grid simply gets wider around it.
+export const remapIndex = (i, fromBoard, toBoard) =>
+  Math.floor(i / fromBoard) * toBoard + (i % fromBoard);
