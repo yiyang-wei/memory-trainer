@@ -19,7 +19,19 @@ import {
   Layers,
   HelpCircle,
   Gauge,
+  Square,
+  Flag,
+  Trophy,
 } from "lucide-react";
+import {
+  loadSettings,
+  saveSettings,
+  loadStats,
+  saveStats,
+  mergeSession,
+  headlineStatKey,
+  HEADLINE_LABEL,
+} from "./storage.js";
 
 const C = {
   bg: "#EEF0F6",
@@ -94,32 +106,42 @@ const levelCapForBoard = (boardSize) => {
   return Math.floor(Math.pow(t, 2 / 3));
 };
 
+// The lowest level that belongs on a given board: one above the previous board's cap.
+// Cap and floor together make every (board, level) pair a single rung on one monotonic
+// ladder, so descending retraces exactly the rungs that ascending climbed.
+const levelFloorForBoard = (boardSize) =>
+  boardSize <= ADAPTIVE_MIN_BOARD ? ADAPTIVE_MIN_LEVEL : levelCapForBoard(boardSize - 1) + 1;
+
 // Two clears in a row bump the level by one; if that overflows the current board's cap,
 // grow the board instead (the level carries over, since a bigger board has more headroom).
+// At the largest board there's nowhere left to grow, so the cap becomes a hard ceiling —
+// without it the level would keep climbing until the whole board lights up.
 const computeAdaptiveClear = (a) => {
   const clearStreak = a.clearStreak + 1;
   if (clearStreak < 2) return { ...a, clearStreak, failStreak: 0 };
   let { level, boardSize } = a;
   level += 1;
-  if (level > levelCapForBoard(boardSize) && boardSize < ADAPTIVE_MAX_BOARD) {
-    boardSize += 1;
+  if (level > levelCapForBoard(boardSize)) {
+    if (boardSize < ADAPTIVE_MAX_BOARD) boardSize += 1;
+    else level = levelCapForBoard(boardSize);
   }
   return { level, boardSize, clearStreak: 0, failStreak: 0 };
 };
 
-// Two fails in a row drop the level by one; if that goes below the floor, shrink the
-// board instead and jump back up to that smaller board's own cap.
+// Two fails in a row drop the level by one; if that falls below the board's floor, step
+// down a board and land on the rung directly below — the exact inverse of a clear that
+// grew the board. Math.min also walks an off-ladder starting level (one the player picked
+// in Settings) down a board at a time until it sits on the ladder.
 const computeAdaptiveFail = (a) => {
   const failStreak = a.failStreak + 1;
   if (failStreak < 2) return { ...a, failStreak, clearStreak: 0 };
   let { level, boardSize } = a;
   level -= 1;
-  if (level < ADAPTIVE_MIN_LEVEL && boardSize > ADAPTIVE_MIN_BOARD) {
+  if (level < levelFloorForBoard(boardSize) && boardSize > ADAPTIVE_MIN_BOARD) {
     boardSize -= 1;
-    level = levelCapForBoard(boardSize);
-  } else {
-    level = Math.max(ADAPTIVE_MIN_LEVEL, level);
+    level = Math.min(level, levelCapForBoard(boardSize));
   }
+  level = Math.max(ADAPTIVE_MIN_LEVEL, level);
   return { level, boardSize, clearStreak: 0, failStreak: 0 };
 };
 
@@ -183,12 +205,14 @@ const TUTORIAL_SCRIPTS = {
   ],
 };
 
-function Stepper({ icon, value, onChange, min, max, step = 1, format }) {
+function Stepper({ icon, value, onChange, min, max, step = 1, format, label }) {
   const s = typeof step === "function" ? step(value) : step;
   const dec = () => onChange(Math.max(min, +(value - s).toFixed(2)));
   const inc = () => onChange(Math.min(max, +(value + s).toFixed(2)));
   return (
     <div
+      role="group"
+      aria-label={label}
       style={{
         display: "flex",
         alignItems: "center",
@@ -217,6 +241,7 @@ function Stepper({ icon, value, onChange, min, max, step = 1, format }) {
         <button
           onClick={dec}
           disabled={value <= min}
+          aria-label={`Decrease ${label}`}
           style={{
             width: 30,
             height: 30,
@@ -235,6 +260,7 @@ function Stepper({ icon, value, onChange, min, max, step = 1, format }) {
           <Minus size={14} />
         </button>
         <div
+          role="status"
           style={{
             minWidth: 44,
             textAlign: "center",
@@ -249,6 +275,7 @@ function Stepper({ icon, value, onChange, min, max, step = 1, format }) {
         <button
           onClick={inc}
           disabled={value >= max}
+          aria-label={`Increase ${label}`}
           style={{
             width: 30,
             height: 30,
@@ -415,6 +442,7 @@ function TutorialPlayer({ script }) {
                 content={isSuccess ? <Check size={12} color="#fff" strokeWidth={3} /> : null}
                 badge={null}
                 clickable={false}
+                label="demo cell"
                 onClick={() => {}}
                 transitionDelay="0ms"
                 shake={false}
@@ -559,14 +587,14 @@ function SegmentBar({ count, filled, current, color, currentColor }) {
   );
 }
 
-function Card({ faceUp, tone, content, badge, clickable, onClick, transitionDelay, transitionDuration, shake }) {
+function Card({ faceUp, tone, content, badge, clickable, onClick, transitionDelay, transitionDuration, shake, label }) {
   return (
     <div className={`cell-wrap${shake ? " shake" : ""}`}>
       <div className="card-scene">
         <button
           onClick={onClick}
           disabled={!clickable}
-          aria-label="cell"
+          aria-label={label}
           className={`card${faceUp ? " flipped" : ""}${clickable ? "" : " no-interact"}`}
           style={{ transitionDelay, transitionDuration }}
         >
@@ -599,8 +627,10 @@ function Card({ faceUp, tone, content, badge, clickable, onClick, transitionDela
 }
 
 export default function MemoryGridTrainer() {
-  const [mode, setMode] = useState("pattern"); // 'pattern' | 'sequence' | 'progressive' | 'queue'
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [restored] = useState(() => loadSettings(DEFAULT_CONFIG, "pattern"));
+  const [mode, setMode] = useState(restored.mode); // 'pattern' | 'sequence' | 'progressive' | 'queue'
+  const [config, setConfig] = useState(restored.config);
+  const [stats, setStats] = useState(() => loadStats(Object.keys(DEFAULT_CONFIG)));
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
@@ -622,7 +652,20 @@ export default function MemoryGridTrainer() {
   const [streak, setStreak] = useState(0);
   const [barKey, setBarKey] = useState(0);
 
+  // Session peaks, for modes where the headline number moves during the run rather than
+  // just counting up: the highest adaptive level and the longest sequence actually cleared.
+  const [peakLevel, setPeakLevel] = useState(0);
+  const [peakLength, setPeakLength] = useState(0);
+  const [endReason, setEndReason] = useState("lost"); // 'lost' | 'quit'
+  const [newRecord, setNewRecord] = useState(false);
+
+  useEffect(() => {
+    saveSettings(config, mode);
+  }, [config, mode]);
+
   const timers = useRef([]);
+  // Starts true: nothing is in flight at mount, so an early mode switch banks nothing.
+  const sessionEnded = useRef(true);
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
@@ -654,6 +697,12 @@ export default function MemoryGridTrainer() {
   const configTotal = configBoardSize * configBoardSize;
   const maxLevel =
     isPatternLike ? Math.floor(configTotal / 2) : allowRepeat ? 60 : Math.min(configTotal - 1, 60);
+
+  // The number this mode is scored on, both live and in the saved personal best.
+  const statKey = headlineStatKey(mode, modeConfig.adaptive);
+  const modeStats = stats[mode];
+  const personalBest = modeStats[statKey];
+  const sessionScore = isProgressive ? peakLength : isAdaptivePattern ? peakLevel : streak;
 
   const updateModeConfig = (patch) =>
     setConfig((c) => ({ ...c, [mode]: { ...c[mode], ...patch } }));
@@ -787,10 +836,41 @@ export default function MemoryGridTrainer() {
     clearTimers();
     setStrikes(0);
     setStreak(0);
+    // Both peaks track what was actually *cleared*, so they start at zero and only rise
+    // on a completed round — seeding from the configured level would bank a personal best
+    // for a run that never cleared anything.
+    setPeakLevel(0);
+    setPeakLength(0);
+    setNewRecord(false);
+    sessionEnded.current = false;
     if (isAdaptivePattern) {
       setAdaptive({ level: modeConfig.level, boardSize: modeConfig.boardSize, clearStreak: 0, failStreak: 0 });
     }
     startRound(true);
+  };
+
+  // Folds the in-flight session into the saved bests, exactly once — a stray timer or a
+  // second exit path would otherwise inflate the play count. Returns whether the run beat
+  // this mode's personal best.
+  const bankSession = () => {
+    if (sessionEnded.current) return false;
+    sessionEnded.current = true;
+    const nextStats = mergeSession(stats, mode, {
+      streak,
+      level: isAdaptivePattern ? peakLevel : 0,
+      length: isProgressive ? peakLength : 0,
+    });
+    setStats(nextStats);
+    saveStats(nextStats);
+    return sessionScore > personalBest;
+  };
+
+  const finishSession = (reason) => {
+    const record = bankSession();
+    clearTimers();
+    setNewRecord(record);
+    setEndReason(reason);
+    setPhase("gameover");
   };
 
   const advanceRound = (overrides = null, holdBeforeReset = SUCCESS_HOLD) => {
@@ -817,22 +897,21 @@ export default function MemoryGridTrainer() {
     addTimer(() => startRound(false, overrides), holdBeforeReset + RESET_ANIM + RESIZE_HOLD);
   };
 
+  // Scheduling the round end from inside a setHearts updater would run it twice under
+  // StrictMode (updaters must stay pure), so derive the new count here instead — every
+  // caller is a click handler, where `hearts` is already the current value.
   const registerWrong = () => {
     setStrikes((s) => s + 1);
-    setHearts((h) => {
-      const nh = h - 1;
-      if (nh <= 0) {
-        if (isAdaptivePattern) {
-          // Adaptive mode never hard-stops: a depleted-hearts round is a "fail" that
-          // adjusts the level/board (if it's the 2nd fail in a row) and keeps going.
-          const nextAdaptive = computeAdaptiveFail(adaptive);
-          advanceAdaptiveRound(nextAdaptive, 380);
-        } else {
-          addTimer(() => setPhase("gameover"), 380);
-        }
-      }
-      return nh;
-    });
+    const nextHearts = hearts - 1;
+    setHearts(nextHearts);
+    if (nextHearts > 0) return;
+    if (isAdaptivePattern) {
+      // Adaptive mode never hard-stops: a depleted-hearts round is a "fail" that
+      // adjusts the level/board (if it's the 2nd fail in a row) and keeps going.
+      advanceAdaptiveRound(computeAdaptiveFail(adaptive), 380);
+    } else {
+      addTimer(() => finishSession("lost"), 380);
+    }
   };
 
   const handleCellClick = (i) => {
@@ -848,6 +927,7 @@ export default function MemoryGridTrainer() {
           setPhase("success");
           setStreak((s) => s + 1);
           if (isAdaptivePattern) {
+            setPeakLevel((p) => Math.max(p, level));
             advanceAdaptiveRound(computeAdaptiveClear(adaptive), SUCCESS_HOLD);
           } else {
             advanceRound();
@@ -869,6 +949,7 @@ export default function MemoryGridTrainer() {
         if (next === sequence.length) {
           setPhase("success");
           setStreak((s) => s + 1);
+          if (isProgressive) setPeakLength((p) => Math.max(p, sequence.length));
           advanceRound();
         }
       } else {
@@ -879,8 +960,14 @@ export default function MemoryGridTrainer() {
   };
 
   const resetToIdle = () => {
+    // Bailing out mid-run (Settings, mode switch) still banks what was achieved rather
+    // than silently dropping it; no-op once the session has already been scored.
+    bankSession();
     clearTimers();
     setPhase("idle");
+    setPeakLevel(0);
+    setPeakLength(0);
+    setNewRecord(false);
     setHearts(3);
     setStrikes(0);
     setStreak(0);
@@ -986,6 +1073,7 @@ export default function MemoryGridTrainer() {
   // show the current level as the headline stat instead.
   const showsLevelStat = isProgressive || isAdaptivePattern;
   const primaryStatValue = isProgressive ? sequence.length : isAdaptivePattern ? level : streak;
+  const isPlaying = phase !== "idle" && phase !== "gameover";
 
   let barNode = null;
   if (phase === "memorize" && mode === "pattern") {
@@ -1077,24 +1165,47 @@ export default function MemoryGridTrainer() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => setShowTutorial(true)}
-              aria-label="How to play"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 12,
-                border: "none",
-                background: C.bg,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: C.ink,
-                cursor: "pointer",
-              }}
-            >
-              <HelpCircle size={18} />
-            </button>
+            {/* Mid-run, this slot becomes the way out: adaptive mode never hits game over,
+                so without it the only exit is a mode switch that scores nothing. */}
+            {isPlaying ? (
+              <button
+                onClick={() => finishSession("quit")}
+                aria-label="End session"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  border: "none",
+                  background: C.wrongSoft,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: C.wrong,
+                  cursor: "pointer",
+                }}
+              >
+                <Square size={15} fill={C.wrong} strokeWidth={0} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowTutorial(true)}
+                aria-label="How to play"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  border: "none",
+                  background: C.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: C.ink,
+                  cursor: "pointer",
+                }}
+              >
+                <HelpCircle size={18} />
+              </button>
+            )}
             <button
               onClick={openSettings}
               aria-label="Settings"
@@ -1167,6 +1278,7 @@ export default function MemoryGridTrainer() {
                     transitionDelay={transitionDelay}
                     transitionDuration={`${flipMs}ms`}
                     shake={wrongCells.has(i)}
+                    label={`Row ${row + 1}, column ${col + 1}`}
                   />
                 );
               })}
@@ -1216,7 +1328,7 @@ export default function MemoryGridTrainer() {
             {phase === "success" && "Nice!"}
             {phase === "resetting" && "Next round..."}
             {phase === "resizing" && `Board resizing to ${boardSize}×${boardSize}...`}
-            {phase === "gameover" && "Here's the answer"}
+            {phase === "gameover" && (endReason === "quit" ? "Session ended" : "Here's the answer")}
           </div>
         </div>
 
@@ -1237,6 +1349,25 @@ export default function MemoryGridTrainer() {
             <div style={{ textAlign: "center", color: C.mutedInk, fontSize: 12, lineHeight: 1.4, padding: "0 20px" }}>
               {MODE_BLURB[mode]}
             </div>
+            {modeStats.plays > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  color: C.mutedInk,
+                  fontSize: 12,
+                }}
+              >
+                <Trophy size={13} color={C.gold} />
+                <span>
+                  Best {HEADLINE_LABEL[statKey]}{" "}
+                  <strong style={{ color: C.ink, fontWeight: 700 }}>{personalBest}</strong>
+                </span>
+                <span style={{ opacity: 0.6 }}>· {modeStats.plays} played</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1254,7 +1385,7 @@ export default function MemoryGridTrainer() {
               gap: 12,
             }}
           >
-            <HeartCrack size={34} color={C.heart} />
+            {endReason === "quit" ? <Flag size={32} color={C.accent} /> : <HeartCrack size={34} color={C.heart} />}
             <div style={{ display: "flex", gap: 22 }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ display: "flex", justifyContent: "center", color: C.gold }}>
@@ -1268,15 +1399,44 @@ export default function MemoryGridTrainer() {
                 </div>
                 <div style={{ fontWeight: 700, color: C.ink, fontSize: 17 }}>{strikes}</div>
               </div>
-              {isProgressive && (
+              {/* The climbing modes report the peak actually cleared, not the round that
+                  ended the run — that one was never completed. */}
+              {(isProgressive || isAdaptivePattern) && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ display: "flex", justifyContent: "center", color: C.accent }}>
                     <TrendingUp size={16} />
                   </div>
-                  <div style={{ fontWeight: 700, color: C.ink, fontSize: 17 }}>{sequence.length}</div>
+                  <div style={{ fontWeight: 700, color: C.ink, fontSize: 17 }}>
+                    {isProgressive ? peakLength : peakLevel}
+                  </div>
                 </div>
               )}
             </div>
+
+            {newRecord ? (
+              <div
+                className="record-badge"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "#FBF1DC",
+                  color: "#8A6410",
+                  borderRadius: 999,
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                <Trophy size={13} />
+                New best {HEADLINE_LABEL[statKey]}!
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: C.mutedInk, fontSize: 12 }}>
+                <Trophy size={13} color={C.gold} />
+                Best {HEADLINE_LABEL[statKey]} <strong style={{ color: C.ink }}>{personalBest}</strong>
+              </div>
+            )}
             <button
               onClick={resetToIdle}
               style={{
@@ -1313,6 +1473,7 @@ export default function MemoryGridTrainer() {
             zIndex: 50,
             padding: 20,
           }}
+          onClick={() => setShowSettings(false)}
         >
           <div
             className="settings-sheet"
@@ -1331,9 +1492,29 @@ export default function MemoryGridTrainer() {
               overflowY: "auto",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.ink, fontWeight: 700, fontSize: 16 }}>
-              <Settings size={18} />
-              Settings
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.ink, fontWeight: 700, fontSize: 16 }}>
+                <Settings size={18} />
+                Settings
+              </div>
+              <button
+                onClick={() => setShowSettings(false)}
+                aria-label="Close settings"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 10,
+                  border: "none",
+                  background: C.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: C.mutedInk,
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
             </div>
 
             <ModeCarousel mode={mode} onChange={changeMode} options={MODE_OPTIONS} />
@@ -1357,6 +1538,7 @@ export default function MemoryGridTrainer() {
               onChange={updateBoardSize}
               min={3}
               max={8}
+              label="board size"
               format={(v) => `${v}×${v}`}
             />
 
@@ -1367,6 +1549,7 @@ export default function MemoryGridTrainer() {
                 onChange={(v) => updateModeConfig({ level: v })}
                 min={2}
                 max={maxLevel}
+                label={mode === "sequence" ? "sequence length" : "cells to find"}
               />
             )}
 
@@ -1377,6 +1560,7 @@ export default function MemoryGridTrainer() {
                 onChange={(v) => updateModeConfig({ queueSize: v })}
                 min={2}
                 max={6}
+                label="queue size"
               />
             )}
 
@@ -1388,6 +1572,7 @@ export default function MemoryGridTrainer() {
                   onChange={(v) => updateModeConfig({ startLength: v })}
                   min={2}
                   max={20}
+                  label="starting length"
                 />
                 <Stepper
                   icon={<TrendingUp size={16} />}
@@ -1395,6 +1580,7 @@ export default function MemoryGridTrainer() {
                   onChange={(v) => updateModeConfig({ increment: v })}
                   min={1}
                   max={5}
+                  label="steps added per round"
                 />
               </>
             )}
@@ -1406,6 +1592,7 @@ export default function MemoryGridTrainer() {
               min={0.1}
               max={5}
               step={(v) => (v < 1 ? 0.1 : 0.5)}
+              label="display time"
               format={(v) => `${v.toFixed(1)}s`}
             />
 

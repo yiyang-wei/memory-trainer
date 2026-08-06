@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"
-    />
+    <!-- No maximum-scale/user-scalable=no: blocking pinch-zoom fails WCAG 1.4.4, and iOS
+         ignores it anyway. Accidental double-tap zoom is already handled by the
+         `touch-action: manipulation` on buttons in index.css. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#EEF0F6" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,7 +14,9 @@
     <meta name="description" content="A mobile-first pattern and sequence memory training game." />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icon.svg" />
+    <!-- iOS has no SVG support here and silently falls back to a screenshot, so this
+         one must be an opaque PNG. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Memory Trainer</title>
   </head>
   <body>
