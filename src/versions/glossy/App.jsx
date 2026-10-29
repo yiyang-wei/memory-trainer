@@ -34,7 +34,7 @@ export default function GlossyApp() {
 
   // The level an exercise opens on: whatever is already selected for it, else the most
   // recently played level of that exercise, else its first level.
-  const openExercise = (modeKey) => {
+  const selectExercise = (modeKey) => {
     if (g.mode !== modeKey || !g.isChallenge) {
       const last = g.prefs.last;
       const id =
@@ -43,6 +43,10 @@ export default function GlossyApp() {
           : challengesForMode(modeKey)[0].id;
       g.selectChallenge(id);
     }
+  };
+
+  const openExercise = (modeKey) => {
+    selectExercise(modeKey);
     go("setup");
   };
 
@@ -81,7 +85,7 @@ export default function GlossyApp() {
           g={g}
           onBack={() => back()}
           onStart={() => go("game")}
-          onSwitchMode={(m) => openExercise(m)}
+          onSwitchMode={selectExercise}
           onHelp={() => go("tutorial", { mode: g.mode })}
         />
       )}

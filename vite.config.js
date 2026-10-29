@@ -15,7 +15,7 @@ export default defineConfig({
       // users on their next launch instead of stranding them on a cached build forever.
       registerType: "autoUpdate",
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,webmanifest,woff2}"],
         cleanupOutdatedCaches: true,
         navigateFallback: "/index.html",
       },

@@ -1,0 +1,1530 @@
+/* Version B · Chunky — tactile, toy-like keycaps. Flat solid fills; depth comes only from
+   thick solid bottom edges that squash when pressed. Everything is scoped under .ck. */
+
+.ck {
+  --ink: #3b3f51;
+  --muted: #5f6478;
+  --faint: #8a90a3;
+  --bg: #eef0f6;
+  --card: #ffffff;
+  --card-edge: #dde1eb;
+  --line: #eceff5;
+  --primary: #6f86d6;
+  --primary-edge: #4f64b8;
+  --primary-tint: #dfe5f8;
+  --ok: #5db38a;
+  --ok-edge: #3f9068;
+  --bad: #e26464;
+  --bad-edge: #b84747;
+  --gold: #e3a52f;
+  --gold-edge: #b9821a;
+  --gold-tint: #fbefd5;
+  --gold-ink: #8a5a0e;
+  --heart: #e2667f;
+  --cap: #ffffff;
+  --cap-edge: #d3d8e5;
+  --tab-h: 76px;
+
+  position: relative;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Fredoka Variable", "Fredoka", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* clip, not hidden: hidden would make .ck a scroll container, and the sticky Start
+     button would then stick to a box that never scrolls. */
+  overflow-x: clip;
+}
+
+/* Zero-specificity resets, so every component class wins over them. */
+:where(.ck) *,
+:where(.ck) *::before,
+:where(.ck) *::after {
+  box-sizing: border-box;
+}
+
+:where(.ck) button {
+  font-family: inherit;
+  color: inherit;
+}
+
+:where(.ck) a {
+  color: inherit;
+}
+
+/* ---------- Page shell ---------- */
+
+.ck-page {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 22px;
+}
+
+.ck-page.with-tabs {
+  padding-bottom: calc(var(--tab-h) + 22px + env(safe-area-inset-bottom));
+}
+
+/* backwards, not both: a held final keyframe would override the keys' pressed transform. */
+.ck-in {
+  animation: ck-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+@keyframes ck-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ck-h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+
+/* ---------- Keycap primitives ---------- */
+
+.ck-card {
+  background: var(--card);
+  border: 2px solid var(--card-edge);
+  border-radius: 26px;
+  box-shadow: 0 5px 0 var(--card-edge);
+}
+
+/* Anything pressable that looks like a key: solid fill, thick bottom edge, squashes. */
+.ck-key {
+  --k: var(--cap);
+  --ke: var(--cap-edge);
+  --dep: 5px;
+  border: none;
+  background: var(--k);
+  box-shadow: 0 var(--dep) 0 var(--ke);
+  border-radius: 18px;
+  cursor: pointer;
+  transition: transform 70ms ease, box-shadow 70ms ease;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+}
+
+.ck-key:not(:disabled):active {
+  transform: translateY(calc(var(--dep) - 1px));
+  box-shadow: 0 1px 0 var(--ke);
+}
+
+.ck-key:disabled {
+  cursor: default;
+}
+
+.ck-key.outline {
+  box-shadow: inset 0 0 0 2px var(--card-edge), 0 var(--dep) 0 var(--card-edge);
+}
+
+.ck-key.outline:not(:disabled):active {
+  box-shadow: inset 0 0 0 2px var(--card-edge), 0 1px 0 var(--card-edge);
+}
+
+.ck-icon-key {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  --dep: 4px;
+}
+
+.ck-primary {
+  --k: var(--primary);
+  --ke: var(--primary-edge);
+  --dep: 6px;
+  width: 100%;
+  min-height: 64px;
+  border-radius: 22px;
+  color: #fff;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ck-secondary {
+  width: 100%;
+  min-height: 58px;
+  border-radius: 20px;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--primary-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ck-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 650;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--card-edge);
+}
+
+/* A small solid block used to build illustrations and previews. */
+.ck-cap {
+  border-radius: 26%;
+  background: var(--c, #fff);
+  box-shadow: 0 var(--cd, 3px) 0 var(--ce, var(--cap-edge));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ---------- Home ---------- */
+
+.ck-home-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 16px;
+}
+
+.ck-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: var(--gold-ink);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 3px 0 #f0d79e;
+}
+
+.ck-continue {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: clamp(132px, 17dvh, 160px);
+  padding: 16px 16px 16px 16px;
+  background: #fff;
+  border: 2px solid var(--card-edge);
+  border-radius: 28px;
+  box-shadow: 0 6px 0 var(--card-edge);
+  text-align: left;
+  width: 100%;
+}
+
+.ck-continue-art {
+  flex: 0 0 auto;
+  width: clamp(96px, 26vw, 116px);
+  aspect-ratio: 1;
+  border-radius: 22px;
+  background: var(--mt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-continue-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ck-kicker {
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--mi);
+}
+
+.ck-continue-name {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.05;
+}
+
+.ck-continue-detail {
+  font-size: 15px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.ck-play-key {
+  --k: var(--primary);
+  --ke: var(--primary-edge);
+  --dep: 6px;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 32px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-tiles {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ck-tile {
+  --k: var(--mt);
+  --ke: var(--mte);
+  --dep: 6px;
+  position: relative;
+  min-height: clamp(150px, 20dvh, 184px);
+  padding: 14px;
+  border-radius: 26px;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  overflow: hidden;
+}
+
+.ck-tile-art {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 6px;
+}
+
+.ck-tile-name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.ck-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  min-height: 26px;
+}
+
+.ck-best {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.ck-tile-sub {
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.ck-pips {
+  display: flex;
+  gap: 3px;
+}
+
+.ck-pips i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: rgba(59, 63, 81, 0.15);
+}
+
+.ck-pips i.on {
+  background: var(--me);
+}
+
+.ck-free {
+  --k: var(--mt);
+  --ke: var(--mte);
+  --dep: 6px;
+  margin-top: 16px;
+  width: 100%;
+  min-height: 74px;
+  padding: 12px 16px 12px 12px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+/* ---------- Tab bar ---------- */
+
+.ck-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  height: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding: 8px 14px env(safe-area-inset-bottom);
+  background: #fff;
+  border-top: 2px solid var(--card-edge);
+  display: flex;
+  justify-content: center;
+}
+
+.ck-tabs-inner {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  gap: 8px;
+}
+
+.ck-tab {
+  flex: 1;
+  border: none;
+  background: none;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ck-tab.on {
+  color: var(--primary-edge);
+  background: var(--primary-tint);
+  box-shadow: 0 4px 0 #c4cff1;
+  transform: translateY(-4px);
+}
+
+/* ---------- Setup ---------- */
+
+.ck-topbar {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  align-items: center;
+  gap: 8px;
+}
+
+.ck-topbar-title {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.ck-dots {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin: 4px 0 8px;
+}
+
+.ck-dot {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ck-dot span {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: #d3d8e5;
+  transition: width 220ms cubic-bezier(0.34, 1.56, 0.64, 1), background 200ms ease;
+}
+
+.ck-dot.on span {
+  width: 26px;
+  background: var(--m);
+}
+
+.ck-preview {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: var(--mt);
+  border-color: var(--mte);
+  box-shadow: 0 6px 0 var(--mte);
+}
+
+.ck-preview-board {
+  width: min(60vw, 236px, calc(100dvh - 560px));
+  min-width: 170px;
+  aspect-ratio: 1;
+  display: grid;
+  padding-bottom: 3px;
+}
+
+.ck-detail {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--mi);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ck-levels {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.ck-level {
+  flex: 1;
+  min-width: 0;
+  min-height: 62px;
+  --dep: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.ck-level-label {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ck-level-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.ck-level.on {
+  --k: var(--m);
+  --ke: var(--me);
+  color: #fff;
+}
+
+.ck-level.on .ck-level-rec {
+  color: #fff;
+}
+
+.ck-rows {
+  margin-top: 16px;
+  padding: 2px 16px;
+}
+
+.ck-row {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ck-row + .ck-row {
+  border-top: 2px solid var(--line);
+}
+
+.ck-row-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-row-label {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.ck-row-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ck-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ck-step {
+  width: 44px;
+  height: 44px;
+  --dep: 4px;
+  --k: #f1f3f8;
+  --ke: #d9deea;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-step:disabled {
+  opacity: 0.35;
+}
+
+.ck-step-value {
+  min-width: 52px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-switch {
+  width: 58px;
+  height: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 17px;
+  padding: 3px;
+  background: #d5d9e5;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+  display: flex;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.ck-switch span {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ck-switch[aria-checked="true"] {
+  background: var(--ok);
+}
+
+.ck-switch[aria-checked="true"] span {
+  transform: translateX(24px);
+}
+
+.ck-sticky {
+  position: sticky;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  margin-top: auto;
+  padding-top: 18px;
+  z-index: 5;
+}
+
+/* ---------- Board ---------- */
+
+.ck-board {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.ck-cell {
+  --f: var(--cap);
+  --fe: var(--cap-edge);
+  position: relative;
+  border: none;
+  padding: 0;
+  border-radius: 24%;
+  background: var(--f);
+  box-shadow: 0 var(--dep, 4px) 0 var(--fe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 160ms ease var(--d, 0ms), box-shadow 160ms ease var(--d, 0ms), transform 70ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-cell:disabled {
+  cursor: default;
+}
+
+.ck-cell:not(:disabled):active {
+  transform: translateY(calc(var(--dep, 4px) - 1px));
+  box-shadow: 0 1px 0 var(--fe);
+}
+
+.ck-cell.up {
+  animation: ck-squash 360ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.ck-cell.up.t-highlight {
+  --f: var(--m);
+  --fe: var(--me);
+}
+
+.ck-cell.up.t-success {
+  --f: var(--ok);
+  --fe: var(--ok-edge);
+}
+
+.ck-cell.up.t-wrong {
+  --f: var(--bad);
+  --fe: var(--bad-edge);
+}
+
+.ck-cell.up.t-missed {
+  --f: var(--mt);
+  --fe: var(--mte);
+  box-shadow: inset 0 0 0 3px var(--m), 0 var(--dep, 4px) 0 var(--mte);
+  color: var(--mi);
+}
+
+.ck-cell.shake {
+  animation: ck-wobble 420ms ease;
+}
+
+@keyframes ck-squash {
+  0% {
+    transform: scale(0.72, 0.72);
+  }
+  35% {
+    transform: scale(1.14, 0.86);
+  }
+  62% {
+    transform: scale(0.94, 1.07);
+  }
+  82% {
+    transform: scale(1.03, 0.98);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes ck-wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-9deg) scale(1.05);
+  }
+  40% {
+    transform: rotate(7deg);
+  }
+  60% {
+    transform: rotate(-5deg);
+  }
+  80% {
+    transform: rotate(3deg);
+  }
+}
+
+.ck-badge {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ck-board-card {
+  position: relative;
+  padding: 14px 14px 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.ck-board-wrap {
+  width: min(100%, calc(100dvh - 430px));
+  min-width: 240px;
+}
+
+.ck-board-card.pulse {
+  animation: ck-jump 460ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ck-jump {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(-10px);
+  }
+  65% {
+    transform: translateY(2px);
+  }
+}
+
+.ck-board-card.resizing .ck-board {
+  animation: ck-resize 900ms ease;
+}
+
+@keyframes ck-resize {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  40%,
+  60% {
+    opacity: 0.2;
+    transform: scale(0.9);
+  }
+}
+
+/* ---------- Game ---------- */
+
+.ck-game {
+  padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.ck-game-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ck-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--mt);
+  color: var(--mi);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 3px 0 var(--mte);
+}
+
+.ck-cue {
+  margin: 14px 0 10px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ck-cue-text {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.ck-cue-text.pop {
+  animation: ck-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ck-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ck-dotrow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 12px;
+  max-width: 330px;
+}
+
+.ck-dotrow i {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: #d9dde8;
+  transition: background 140ms ease;
+}
+
+.ck-dotrow i.done {
+  background: var(--m);
+  animation: ck-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ck-dotrow i.now {
+  background: var(--gold);
+}
+
+.ck-meter {
+  width: 220px;
+  height: 12px;
+  border-radius: 6px;
+  background: #d9dde8;
+  overflow: hidden;
+}
+
+.ck-meter span {
+  display: block;
+  height: 100%;
+  background: var(--m);
+  border-radius: 6px;
+  transition: width 160ms ease;
+}
+
+.ck-queue {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ck-qslot {
+  --k: #fff;
+  --ke: var(--cap-edge);
+  --dep: 4px;
+  width: 50px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--k);
+  box-shadow: 0 var(--dep) 0 var(--ke);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--faint);
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ck-qslot.front {
+  --k: var(--mt);
+  --ke: var(--me);
+  color: var(--mi);
+  box-shadow: inset 0 0 0 3px var(--m), 0 var(--dep) 0 var(--me);
+  transform: translateY(-4px);
+}
+
+.ck-qslot.filled {
+  --k: var(--m);
+  --ke: var(--me);
+  color: #fff;
+  animation: ck-squash 360ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.ck-drain {
+  height: 12px;
+  border-radius: 6px;
+  background: #d9dde8;
+  overflow: hidden;
+  margin: 16px 6px 0;
+}
+
+.ck-drain span {
+  display: block;
+  height: 100%;
+  background: var(--m);
+  border-radius: 6px;
+  transform-origin: left;
+  animation: ck-drain linear forwards;
+}
+
+@keyframes ck-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.ck-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ck-countdown span {
+  width: 120px;
+  height: 120px;
+  border-radius: 34px;
+  background: var(--m);
+  box-shadow: 0 8px 0 var(--me);
+  color: #fff;
+  font-size: 72px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ck-count 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ck-count {
+  0% {
+    transform: scale(0.3) rotate(-20deg);
+  }
+  60% {
+    transform: scale(1.12, 0.9) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* The HUD bar docked at the bottom of the game screen. */
+.ck-hud {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 10;
+  width: min(452px, calc(100% - 28px));
+  min-height: 98px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 2px solid var(--card-edge);
+  border-radius: 28px;
+  box-shadow: 0 6px 0 var(--card-edge);
+}
+
+.ck-round {
+  min-width: 62px;
+  height: 66px;
+  padding: 0 8px;
+  border-radius: 20px;
+  background: var(--mt);
+  box-shadow: 0 4px 0 var(--mte);
+  color: var(--mi);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-round b {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ck-round small {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.ck-run {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ck-run-marks,
+.ck-run-segs {
+  display: grid;
+  gap: 4px;
+}
+
+.ck-run-marks span {
+  height: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.ck-run-segs i {
+  height: 14px;
+  border-radius: 5px;
+  background: #e3e6ef;
+}
+
+.ck-run-segs i.done {
+  background: var(--m);
+  box-shadow: 0 3px 0 var(--me);
+}
+
+.ck-run-segs i.now {
+  background: var(--mt);
+  box-shadow: inset 0 0 0 2px var(--m);
+}
+
+.ck-run-segs i.beat {
+  background: var(--gold);
+  box-shadow: 0 3px 0 var(--gold-edge);
+}
+
+.ck-hearts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-hearts .lost {
+  animation: ck-heart 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ck-heart {
+  0% {
+    transform: scale(1.5) rotate(-15deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- Confetti / burst ---------- */
+
+.ck-confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  overflow: hidden;
+}
+
+.ck-confetti i {
+  position: absolute;
+  top: -30px;
+  border-radius: 50%;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+  animation: ck-fall var(--dur, 2.4s) cubic-bezier(0.3, 0.5, 0.5, 1) var(--delay, 0s) forwards;
+}
+
+@keyframes ck-fall {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(var(--dx, 0px), 108vh, 0) scale(0.8);
+  }
+}
+
+.ck-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ck-burst i {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  animation: ck-burst 620ms cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes ck-burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1);
+    opacity: 0;
+  }
+}
+
+/* ---------- Result ---------- */
+
+.ck-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.ck-stamp {
+  margin-top: 10px;
+  padding: 10px 22px;
+  border-radius: 18px;
+  border: 4px solid currentColor;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: #fff;
+  transform: rotate(-7deg);
+  animation: ck-stamp 520ms cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.ck-stamp.gold {
+  color: var(--gold-edge);
+  background: var(--gold-tint);
+  box-shadow: 0 5px 0 #f0d79e;
+}
+
+.ck-stamp.plain {
+  color: var(--mi);
+  background: var(--mt);
+  box-shadow: 0 5px 0 var(--mte);
+}
+
+@keyframes ck-stamp {
+  0% {
+    transform: scale(2.6) rotate(-24deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.92) rotate(-5deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1.05) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1) rotate(-7deg);
+  }
+}
+
+.ck-score {
+  margin-top: 18px;
+  font-size: 104px;
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -2px;
+  animation: ck-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 220ms both;
+}
+
+.ck-score-noun {
+  font-size: 19px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.ck-stats {
+  width: 100%;
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ck-stat {
+  padding: 12px 6px 10px;
+  border-radius: 20px;
+  background: #fff;
+  border: 2px solid var(--card-edge);
+  box-shadow: 0 5px 0 var(--card-edge);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ck-stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.ck-stat-value {
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.ck-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ck-trend {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+}
+
+.ck-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.ck-bars span {
+  width: 11px;
+  border-radius: 4px;
+  min-height: 6px;
+  background: var(--bar, #e3e6ef);
+  transform-origin: bottom;
+  animation: ck-grow 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes ck-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* ---------- Records ---------- */
+
+.ck-seg {
+  display: flex;
+  gap: 6px;
+}
+
+.ck-seg button {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 650;
+  --dep: 4px;
+}
+
+.ck-seg button.on {
+  --k: var(--ink);
+  --ke: #22252f;
+  color: #fff;
+}
+
+.ck-rec {
+  margin-top: 14px;
+  padding: 12px 12px 14px;
+}
+
+.ck-rec-head {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 2px 2px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-rec-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  background: var(--mt);
+  box-shadow: 0 3px 0 var(--mte);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-rec-name {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.ck-rec-sub {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.ck-mosaic {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ck-mtile {
+  height: 62px;
+  padding: 7px 9px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--mt);
+  box-shadow: 0 4px 0 var(--mte);
+}
+
+.ck-mtile.empty {
+  background: #f3f4f8;
+  box-shadow: 0 4px 0 #e3e6ef;
+}
+
+.ck-mtile small {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mi);
+}
+
+.ck-mtile.empty small {
+  color: var(--muted);
+}
+
+.ck-mtile b {
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ck-mtile.empty b {
+  color: var(--faint);
+}
+
+.ck-rec-list {
+  margin-top: 10px;
+}
+
+.ck-rec-line {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 2px solid var(--line);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ck-tag {
+  min-width: 56px;
+  padding: 4px 0;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.ck-total {
+  margin-top: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ---------- Settings ---------- */
+
+.ck-set-link {
+  width: 100%;
+  border: none;
+  background: none;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+/* ---------- Tutorial ---------- */
+
+.ck-tut {
+  margin-top: 16px;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ck-tut ul {
+  margin: 0;
+  padding: 0 0 0 20px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.ck-tut-cell {
+  width: 100%;
+  height: 100%;
+  border-radius: 24%;
+  background: var(--f, #fff);
+  box-shadow: 0 4px 0 var(--fe, var(--cap-edge));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.ck-tut-cell.up {
+  animation: ck-squash 360ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck *,
+  .ck *::before,
+  .ck *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Centres the round between the header and the docked HUD, and tints the board's card so
+   the white idle keycaps read as keys rather than gaps. */
+.ck-game-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ck-game .ck-board-card {
+  background: var(--mt);
+  border-color: var(--mte);
+  box-shadow: 0 6px 0 var(--mte);
+}
