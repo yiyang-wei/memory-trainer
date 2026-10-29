@@ -60,6 +60,26 @@ can never land the player somewhere harder.
 Adaptive practice is the only thing that changes board size mid-run, and Pattern redraws
 its pattern every round, so nothing needs carrying across a resize.
 
+## Redesign candidates
+
+Three playful redesigns are being compared side by side, one URL each:
+
+| Path | Version |
+| --- | --- |
+| `/` | Version picker |
+| `/a` | Glossy — glass cards, shiny 3D blocks, confetti |
+| `/b` | Chunky — pressable keycaps, bouncy motion, a docked game HUD |
+| `/c` | Sticker — die-cut stickers on dotted paper; results slide up over the answer |
+| `/classic` | The original screen below, unchanged |
+
+They share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported
+from the classic component, plus run stats and history), `useNavigation` (screens in
+browser history, so Android's back gesture works), `catalog` (exercise and level facts)
+and `feedback` (synthesized sounds and vibration). Each version under `src/versions/`
+only renders. Records, settings and run history are shared, so a record set in one
+version shows in all of them. Run history lives under `memory-trainer.history.v1` and
+sound/vibration toggles plus the last level played under `memory-trainer.prefs.v1`.
+
 ## Screens
 
 `MemoryGridTrainer` routes on a `screen` state rather than stacking overlays:

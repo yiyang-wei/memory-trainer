@@ -104,7 +104,7 @@ export const previewCells = (mode, size, count, seed = 1) => {
   } else if (mode === "queue") {
     // The waiting pattern is a hint, not a second full pattern — on a small board two
     // full patterns would light up most of it.
-    const both = scatter(n, Math.min(count * 2, count + Math.max(1, Math.floor((n * n) / 4))), seed);
+    const both = scatter(n, Math.min(count * 2, count + Math.max(1, Math.floor((n * n) / 8))), seed);
     both.forEach((i, idx) => (cells[i] = { role: idx < count ? "lit" : "next", label: "" }));
   } else {
     const steps = scatter(n, Math.min(count, 4), seed);
