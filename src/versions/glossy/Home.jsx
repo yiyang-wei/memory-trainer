@@ -47,7 +47,7 @@ export default function Home({ g, onOpen, onFree, onQuickPlay }) {
           <span className="gl-hero-kicker">{last ? "Continue" : "Start here"}</span>
           <span className="gl-hero-name">{MODES.find((m) => m.key === heroMode).name}</span>
           {heroDetail && <span className="gl-hero-detail">{heroDetail}</span>}
-          {heroHead.held > 0 && (
+          {heroHead.held > 0 && last?.intent !== "practice" && (
             <span className="gl-tile-best">
               <Trophy size={13} color="#C98A1A" strokeWidth={2.6} />
               {countOf(heroHead.best, heroHead.noun)}
