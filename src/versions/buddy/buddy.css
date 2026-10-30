@@ -220,12 +220,14 @@
 
 /* ---------- Home ---------- */
 
+/* Room above for the buddy's jumps. */
 .bd-home-head {
   display: flex;
   align-items: center;
   gap: 4px;
   margin-bottom: 18px;
-  min-height: 72px;
+  padding-top: 8px;
+  min-height: 80px;
 }
 
 .bd-home-buddy {
@@ -1365,6 +1367,7 @@
 }
 
 .bd-verdict-say {
+  z-index: 2;
   margin-bottom: 8px;
   padding: 7px 13px;
   font-size: 15px;
@@ -1722,6 +1725,49 @@
   border-top: 2px dashed var(--line);
 }
 
+/* Choosing the buddy: two ghosts side by side, the picked one ringed. */
+.bd-shapes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.bd-shape {
+  min-height: 132px;
+  border: none;
+  border-radius: 20px;
+  padding: 20px 0 10px;
+  background: #f4f5fa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bd-shape .bd-buddy-svg {
+  width: 78px;
+  height: auto;
+}
+
+.bd-shape-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--faint);
+}
+
+.bd-shape.on {
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.bd-shape.on .bd-shape-name {
+  color: var(--ink);
+}
+
 .bd-tut {
   margin-top: 18px;
   padding: 22px 16px;
@@ -1758,40 +1804,152 @@
   filter: drop-shadow(0 3px 4px rgba(59, 63, 81, 0.18));
 }
 
-.bd-buddy-pop {
+/* The rig the jump engine moves (see src/engine/jump.js): every part pivots on a point
+   given inline in viewBox px. */
+.bd .lb-all,
+.bd .lb-body,
+.bd .lb-top,
+.bd .lb-arm-l,
+.bd .lb-arm-r,
+.bd .lb-feet,
+.bd .lb-tail {
+  transform-box: view-box;
+}
+
+/* A buddy that can jump: the figure, a ground shadow that shrinks as it rises, landing
+   dust and star-jump sparkles. */
+.bd-live {
+  position: relative;
   display: block;
+}
+
+.bd-fig {
+  position: relative;
+  display: block;
+}
+
+.bd-fig .bd-buddy-svg {
   transform-origin: 50% 90%;
-  animation: bd-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.bd-buddy-pop.hop {
-  animation: bd-hop 560ms cubic-bezier(0.34, 1.4, 0.64, 1);
+.jump-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 58%;
+  height: 8px;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: rgba(59, 63, 81, 0.11);
 }
 
-@keyframes bd-pop {
+.bd-dust {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  z-index: 1;
+}
+
+.bd-dust i {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #d6dbec;
+  box-shadow: 0 0 0 2px #fff;
+  animation: bd-dust 560ms cubic-bezier(0.2, 0.7, 0.3, 1) var(--d, 0ms) both;
+}
+
+/* Puffs start half way out, so the buddy doesn't hide them. */
+@keyframes bd-dust {
   0% {
-    transform: scale(0.94, 1.04);
+    opacity: 0;
+    transform: translate(calc(var(--dx) * 0.5), 0) scale(calc(0.35 * var(--s)));
   }
-  45% {
-    transform: scale(1.04, 0.97) translateY(-2px);
+  25% {
+    opacity: 1;
   }
   100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(var(--s));
+  }
+}
+
+.bd-burst {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.bd-burst svg {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  overflow: visible;
+  animation: bd-burst 700ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes bd-burst {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(28px) rotate(calc(-1 * var(--a))) scale(0.3);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(68px) rotate(calc(-1 * var(--a))) scale(1.1) rotate(90deg);
+  }
+}
+
+/* The halo drops in, bobs while the perfect rounds keep coming, and falls off on a miss. */
+.bd-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation:
+    bd-halo-in 650ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    bd-halo-bob 1.3s ease-in-out 650ms infinite alternate;
+}
+
+.bd-halo.falling {
+  animation: bd-halo-fall 650ms cubic-bezier(0.5, 0, 0.9, 0.5) forwards;
+}
+
+@keyframes bd-halo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.4);
+  }
+  50% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
     transform: none;
   }
 }
 
-@keyframes bd-hop {
+@keyframes bd-halo-bob {
+  to {
+    transform: translateY(-2.5px);
+  }
+}
+
+@keyframes bd-halo-fall {
   0% {
     transform: none;
   }
-  30% {
-    transform: translateY(-12px) rotate(-4deg);
-  }
-  60% {
-    transform: translateY(0) scale(1.04, 0.96);
+  25% {
+    transform: translateY(-5px) rotate(-8deg);
   }
   100% {
-    transform: none;
+    opacity: 0;
+    transform: translate(16px, 50px) rotate(40deg);
   }
 }
 

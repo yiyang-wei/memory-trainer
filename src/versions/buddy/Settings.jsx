@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Volume2, Vibrate, BookOpen, ArrowLeftRight, History, ChevronRight } from "lucide-react";
 import { Switch, Squiggle } from "./ui.jsx";
-import Buddy from "./Buddy.jsx";
+import { LiveBuddy, SHAPES, SHAPE_KEYS } from "./Buddy.jsx";
+import { FLOATY, jumpFx } from "./jumps.js";
 import { THEME } from "./theme.js";
 
 function Row({ icon, bg, fg, label, children }) {
@@ -29,6 +30,32 @@ function LinkRow({ icon, bg, fg, label, ...props }) {
   );
 }
 
+// The two ghosts to choose from. The one picked grins, and hops when it's chosen.
+function ShapePicker({ g }) {
+  const [hop, setHop] = useState({ shape: null, n: 0 });
+  const current = SHAPES[g.prefs.buddy] ? g.prefs.buddy : "puff";
+  const choose = (shape) => {
+    g.emit("tap");
+    g.setBuddy(shape);
+    setHop((h) => ({ shape, n: h.n + 1 }));
+  };
+  return (
+    <div className="bd-shapes" role="radiogroup" aria-label="Your buddy">
+      {SHAPE_KEYS.map((k) => (
+        <button key={k} type="button" role="radio" aria-checked={current === k} className={`bd-shape${current === k ? " on" : ""}`} onClick={() => choose(k)}>
+          <LiveBuddy
+            shape={k}
+            mood={current === k ? "happy" : "idle"}
+            jump={hop.shape === k ? { n: hop.n, motion: FLOATY } : null}
+            fx={jumpFx(g.prefs)}
+          />
+          <span className="bd-shape-name">{SHAPES[k].name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsScreen({ g, onHelp }) {
   const on = Number(g.prefs.sound) + Number(g.prefs.haptics);
   const mood = on === 2 ? "happy" : on === 1 ? "idle" : "gentle";
@@ -40,12 +67,14 @@ export default function SettingsScreen({ g, onHelp }) {
           <Squiggle width={110} color={THEME.queue.main} />
         </div>
         {/* The buddy perks up with sound and buzz on, and dozes with both off. */}
-        <span key={mood} className="bd-set-buddy bd-buddy-pop">
-          <Buddy mood={mood} />
-        </span>
+        <LiveBuddy className="bd-set-buddy" mood={mood} />
       </div>
 
-      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.6deg" }}>
+      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "0.4deg" }}>
+        <ShapePicker g={g} />
+      </section>
+
+      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.6deg", "--delay": "60ms" }}>
         <div className="bd-rows">
           <Row icon={<Volume2 size={19} strokeWidth={2.4} />} bg="#DCE4F7" fg="#44589F" label="Sound">
             <Switch
@@ -71,11 +100,11 @@ export default function SettingsScreen({ g, onHelp }) {
         </div>
       </section>
 
-      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "0.5deg", "--delay": "60ms" }}>
+      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "0.5deg", "--delay": "120ms" }}>
         <LinkRow icon={<BookOpen size={19} strokeWidth={2.4} />} bg="#E1F2E9" fg="#2A6E4F" label="How to play" onClick={onHelp} />
       </section>
 
-      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.4deg", "--delay": "120ms" }}>
+      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.4deg", "--delay": "180ms" }}>
         <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/" />
         <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Today's version" href="/classic" />
       </section>

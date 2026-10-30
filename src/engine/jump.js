@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 
-// Physics for the lab's jumps. A jump is simulated once (crouch, push, a ballistic flight
+// Physics for the buddy's jumps, shared by the Buddy Lab and the Buddy version. A jump is
+// simulated once (crouch, push, a ballistic flight
 // with hang near the apex, impact, settle), then sampled into Web Animations keyframes,
 // one track per rig part. The body's path is the only thing that's scripted: the arms,
 // antenna, face, skirt and feet are damped springs pushed around by the body's
@@ -11,6 +12,11 @@ import { flushSync } from "react-dom";
 // Mood changes (which swap arm poses) happen at the moments the motion asks for. Each
 // swap measures the arms before and after and adds a spring that swings them from the
 // old pose to the new one, so a pose never snaps.
+//
+// The buddy is rigged by class (see src/lab/characters.jsx): lb-all, lb-body, lb-top,
+// lb-arm-l, lb-arm-r, lb-feet, lb-tail and lb-face, each with an inline transform-origin
+// in viewBox px and transform-box: view-box. A ground shadow, if any, is a sibling of the
+// figure with the class mo-shadow or jump-shadow.
 
 const TAU = Math.PI * 2;
 const DT = 1 / 240; // simulation step, s
@@ -105,7 +111,9 @@ function launchSpeed(p) {
   return (lo + hi) / 2;
 }
 
-// Simulates a motion: { hops: [hop…], settle: s, end: mood, endAfter: s, delay: s }.
+// Simulates a motion: { hops: [hop…], settle: s, end: mood, endAfter: s, delay: s,
+// release: bool }. With `release`, the end hands the mood back (on.mood(null)) instead of
+// setting `end`.
 // Returns numeric frames per track and the events (crouch, takeoff, apex, land, end).
 export function simulate(motion, size = 112, reduced = false) {
   const k = size / 112;
@@ -333,7 +341,8 @@ const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(pre
 
 // Plays `motion` on the buddy inside `fig` (a .mo-fig wrapper). `on.mood(m)` changes the
 // buddy's mood (it must render synchronously under flushSync); `on.fx(arg)` plays feedback;
-// `on.event(e)` hears every event. Returns a function that stops everything.
+// `on.event(e)` hears every event; `on.done()` runs once every part has come to rest.
+// Returns a function that stops everything.
 export function playJump(fig, motion, on) {
   const reduced = reducedMotion();
   const size = fig.offsetWidth || 112;
@@ -386,13 +395,13 @@ export function playJump(fig, motion, on) {
     const cy = r2(b.y + b.height);
     run(feetEl, map((i) => ({ transform: `translate(0px, ${r2(F.feet[i])}px) translate(${cx}px, ${cy}px) scale(${r2(1 + F.spread[i])}, 1) translate(${-cx}px, ${-cy}px)` })));
   }
-  const shadow = fig.parentElement && fig.parentElement.querySelector(":scope > .mo-shadow");
+  const shadow = fig.parentElement && fig.parentElement.querySelector(":scope > .mo-shadow, :scope > .jump-shadow");
   run(shadow, map((i) => ({ transform: `scale(${r2(F.shadow[i])})`, opacity: r2(F.shadowO[i]) })));
 
   // Mood swaps with a swing from the old arm pose to the new one.
   const arms = [q(".lb-arm-l"), q(".lb-arm-r")];
-  const setMood = (mood) => {
-    if (!mood) return;
+  const setMood = (mood, release = false) => {
+    if (!mood && !release) return;
     const before = arms.map(armAngle);
     flushSync(() => on.mood(mood));
     arms.forEach((g, i) => {
@@ -423,12 +432,13 @@ export function playJump(fig, motion, on) {
         setMood(h.mood[2]);
         if (h.fx[1]) on.fx(h.fx[1]);
       }
-      if (e.type === "end") setMood(motion.end || "idle");
+      if (e.type === "end") setMood(motion.release ? null : motion.end || "idle", motion.release);
       if (on.event) on.event(e);
     });
   });
   // Extra mood cues: [[s, mood]…], from the motion's start (before its delay).
   (motion.cues || []).forEach(([s, mood]) => at(s, () => setMood(mood)));
+  if (on.done) at(sim.delay + sim.dur, () => on.done());
 
   return () => {
     timers.forEach(clearTimeout);
@@ -437,9 +447,9 @@ export function playJump(fig, motion, on) {
 }
 
 // Plays `motion` on the buddy in `ref` whenever `n` changes (not at rest, n = 0).
-export function useJump(n, ref, motion, { setMood, fx, onEvent }) {
+export function useJump(n, ref, motion, { setMood, fx, onEvent, onDone }) {
   const latest = useRef(null);
-  latest.current = { setMood, fx, onEvent, motion };
+  latest.current = { setMood, fx, onEvent, onDone, motion };
   useEffect(() => {
     if (!n || !ref.current) return undefined;
     const l = latest.current;
@@ -447,6 +457,7 @@ export function useJump(n, ref, motion, { setMood, fx, onEvent }) {
       mood: (m) => latest.current.setMood(m),
       fx: (a) => latest.current.fx(a),
       event: (e) => latest.current.onEvent && latest.current.onEvent(e),
+      done: () => latest.current.onDone && latest.current.onDone(),
     });
   }, [n, ref]);
 }

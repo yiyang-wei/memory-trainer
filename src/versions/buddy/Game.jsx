@@ -3,10 +3,13 @@ import { X, Trophy } from "lucide-react";
 import { modeByKey, presetLabel, formatSpeed } from "../../engine/catalog.js";
 import { Board, Hearts, Burst, modeVars } from "./ui.jsx";
 import { THEME } from "./theme.js";
-import Buddy, { Bubble } from "./Buddy.jsx";
+import { LiveBuddy, Bubble } from "./Buddy.jsx";
+import { CLEAR, FLOATY, TUCK, jumpFx } from "./jumps.js";
 
 const COUNT_STEP = 520;
 const MAX_DOTS = 10;
+// Rounds in a row, without a miss, that earn the buddy its halo.
+const HALO_AFTER = 3;
 
 // The bobble on the buddy's antenna takes the exercise colour (gold on Pattern, whose
 // colour is the buddy's own).
@@ -151,6 +154,40 @@ export default function Game({ g, onQuit, onFinished }) {
     if (g.phase !== "recall") setReact(null);
   }, [g.phase]);
 
+  // Every cleared round gets a jump. Passing the record gets a flip (once a run), and the
+  // round that earns the halo a floaty hop. A miss knocks the halo off.
+  const [jump, setJump] = useState({ n: 0, motion: null });
+  const [halo, setHalo] = useState(false);
+  const clean = useRef(0);
+  const flipped = useRef(false);
+  const latest = useRef(g);
+  latest.current = g;
+  useEffect(() => {
+    if (g.phase !== "success") return;
+    const now = latest.current;
+    clean.current += 1;
+    let motion = CLEAR;
+    if (now.record.best > 0 && now.sessionScore > now.record.best && !flipped.current) {
+      flipped.current = true;
+      motion = TUCK;
+    } else if (clean.current === HALO_AFTER) motion = FLOATY;
+    if (clean.current >= HALO_AFTER) setHalo(true);
+    setJump((j) => ({ n: j.n + 1, motion }));
+  }, [g.phase]);
+  const strikesSeen = useRef(g.strikes);
+  useEffect(() => {
+    const missed = g.strikes > strikesSeen.current;
+    strikesSeen.current = g.strikes;
+    if (!missed) return;
+    clean.current = 0;
+    setHalo((h) => (h ? "falling" : false));
+  }, [g.strikes]);
+  useEffect(() => {
+    if (halo !== "falling") return undefined;
+    const id = setTimeout(() => setHalo(false), 700);
+    return () => clearTimeout(id);
+  }, [halo]);
+
   const counting = count > 0;
   const quit = () => {
     if (counting || g.phase === "idle" || g.phase === "gameover") onQuit();
@@ -232,9 +269,7 @@ export default function Game({ g, onQuit, onFinished }) {
       </div>
 
       <div className="bd-hud">
-        <span key={mood} className={`bd-hud-buddy bd-buddy-pop${g.phase === "success" ? " hop" : ""}`}>
-          <Buddy mood={mood} accent={accentFor(g.mode)} />
-        </span>
+        <LiveBuddy className="bd-hud-buddy" mood={mood} accent={accentFor(g.mode)} halo={halo} jump={jump} fx={jumpFx(g.prefs)} />
         <Bubble tail="left" className="bd-hud-bubble">
           <span key={text} className="bd-say" aria-live="polite">
             {text}

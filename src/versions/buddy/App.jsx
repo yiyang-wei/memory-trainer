@@ -12,6 +12,7 @@ import Result from "./Result.jsx";
 import Records from "./Records.jsx";
 import SettingsScreen from "./Settings.jsx";
 import Tutorial from "./Tutorial.jsx";
+import { BuddyLook } from "./Buddy.jsx";
 
 const TAB_SCREENS = ["home", "records", "settings"];
 
@@ -79,24 +80,26 @@ export default function BuddyApp() {
   const help = () => go("tutorial", { mode: g.mode });
 
   return (
-    <div className="bd">
-      {screen === "home" && <Home g={g} onOpen={openExercise} onFree={openFreePlay} onQuickPlay={quickPlay} />}
-      {screen === "setup" && (
-        <Setup g={g} onBack={() => back()} onStart={() => go("game")} onSwitchMode={selectExercise} onHelp={help} />
-      )}
-      {screen === "game" && <Game g={g} onQuit={() => back()} onFinished={() => go("result", {}, { replace: true })} />}
-      {screen === "result" && (
-        <Result
-          g={g}
-          onAgain={() => go("game", {}, { replace: true })}
-          onRecords={() => go("records", {}, { replace: true })}
-          onClose={() => back()}
-        />
-      )}
-      {screen === "records" && <Records g={g} />}
-      {screen === "settings" && <SettingsScreen g={g} onHelp={help} />}
-      {screen === "tutorial" && <Tutorial initialMode={params.mode || g.mode} onBack={() => back()} />}
-      {tab && <TabBar current={tab} onChange={switchTab} />}
-    </div>
+    <BuddyLook shape={g.prefs.buddy}>
+      <div className="bd">
+        {screen === "home" && <Home g={g} onOpen={openExercise} onFree={openFreePlay} onQuickPlay={quickPlay} />}
+        {screen === "setup" && (
+          <Setup g={g} onBack={() => back()} onStart={() => go("game")} onSwitchMode={selectExercise} onHelp={help} />
+        )}
+        {screen === "game" && <Game g={g} onQuit={() => back()} onFinished={() => go("result", {}, { replace: true })} />}
+        {screen === "result" && (
+          <Result
+            g={g}
+            onAgain={() => go("game", {}, { replace: true })}
+            onRecords={() => go("records", {}, { replace: true })}
+            onClose={() => back()}
+          />
+        )}
+        {screen === "records" && <Records g={g} />}
+        {screen === "settings" && <SettingsScreen g={g} onHelp={help} />}
+        {screen === "tutorial" && <Tutorial initialMode={params.mode || g.mode} onBack={() => back()} />}
+        {tab && <TabBar current={tab} onChange={switchTab} />}
+      </div>
+    </BuddyLook>
   );
 }

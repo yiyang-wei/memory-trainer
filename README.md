@@ -70,7 +70,7 @@ directions and Sticker (C) won; round 2 explores three takes on it.
 | `/` | Version picker |
 | `/c1` | Tidy — Sticker, calmer and straighter; records fill a sticker album |
 | `/c2` | Scrapbook — paper, washi tape, rubber-stamp records, handwritten notes |
-| `/c3` | Buddy — Sticker with a small mascot who carries the cues and reacts |
+| `/c3` | Buddy — Sticker with a small ghost mascot who carries the cues, reacts and jumps |
 | `/c` | Sticker (round 1) — die-cut stickers on dotted paper; results slide up over the answer |
 | `/b` | Chunky (round 1) — pressable keycaps, bouncy motion, a docked game HUD |
 | `/a` | Glossy (round 1) — glass cards, shiny 3D blocks, confetti |
@@ -85,10 +85,25 @@ set of ratings, and the file can be read directly.
 
 Lab items marked `fresh` are the current round. They are listed first with a "New" chip and
 counted by the progress pill. The current round follows the first round's picks: ghost and
-cloud buddies (B13–B22) and jumps (M25–M32). The jumps come from `src/lab/jump.js`, which
+cloud buddies (B13–B22) and jumps (M25–M32). The jumps come from `src/engine/jump.js`, which
 simulates each jump once (crouch, flight with hang time, landing, spring settle). It plays
 the body's path on the figure and squash/stretch on `lb-all`, and drives the arms, antenna,
 face and the ghosts' `lb-tail` with springs, so they lag and settle on their own.
+
+The lab's picks are in `/c3`:
+- **Shape.** The buddy is a ghost, and the player chooses Puff (B13) or Sheet (B15) in
+  Settings. The choice is stored as `prefs.buddy`.
+- **Nightcap.** From 21:00 to 06:00 it wears Dozy's nightcap (B17). Add `?night=1` or
+  `?night=0` to the address to force it on or off.
+- **Halo.** After three rounds in a row without a miss it earns Halo's halo (B19), which
+  falls off on the next miss.
+- **Jumps.** The jumps come from `src/versions/buddy/jumps.js`:
+  - every cleared round: M31
+  - passing the record: a tuck flip, once per run
+  - the round that earns the halo: a floaty hop
+  - a new record on the result screen: M32
+  - a nice run on the result screen: a hop
+  - each poke on Home: the next of the six reaction jumps
 
 The versions share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported
 from the classic component, plus run stats and history), `useNavigation` (screens in

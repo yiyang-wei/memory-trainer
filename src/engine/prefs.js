@@ -1,10 +1,11 @@
-// Per-device preferences the redesigned versions share: feedback toggles and the last
-// level played (what "Continue" resumes). Kept apart from settings.v2 so the classic
-// screen, which rewrites that key wholesale, can never drop these fields.
+// Per-device preferences the redesigned versions share: feedback toggles, the last
+// level played (what "Continue" resumes) and the Buddy version's ghost shape. Kept apart
+// from settings.v2 so the classic screen, which rewrites that key wholesale, can never
+// drop these fields.
 
 const PREFS_KEY = "memory-trainer.prefs.v1";
 
-const DEFAULT_PREFS = { sound: true, haptics: true, last: null };
+const DEFAULT_PREFS = { sound: true, haptics: true, last: null, buddy: "puff" };
 
 export const loadPrefs = () => {
   try {

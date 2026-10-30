@@ -174,6 +174,7 @@ export function useMemoryGame() {
 
   const setSound = (v) => setPrefs((p) => ({ ...p, sound: v }));
   const setHaptics = (v) => setPrefs((p) => ({ ...p, haptics: v }));
+  const setBuddy = (v) => setPrefs((p) => ({ ...p, buddy: v }));
 
   // ---------- Rounds ----------
 
@@ -527,6 +528,7 @@ export function useMemoryGame() {
     setChallengeSpeed,
     setSound,
     setHaptics,
+    setBuddy,
     emit,
     // the round
     phase,

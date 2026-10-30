@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Play, Flame, Trophy, ChevronRight } from "lucide-react";
 import { MODES, modeByKey, modeHeadline, countOf, presetLabel, presetDetail } from "../../engine/catalog.js";
 import { challengeById, challengesForMode, scoreNoun } from "../../challenges.js";
 import { dayStreak } from "../../engine/history.js";
 import { ART, DoodleArrow, DoodleStar, modeVars } from "./ui.jsx";
 import { THEME } from "./theme.js";
-import Buddy, { Bubble } from "./Buddy.jsx";
+import { LiveBuddy, Bubble } from "./Buddy.jsx";
+import { POKES, jumpFx } from "./jumps.js";
 
 const TILTS = ["-1.6deg", "1.3deg", "1.1deg", "-1.4deg"];
 
@@ -35,25 +36,22 @@ export default function Home({ g, onOpen, onFree, onQuickPlay }) {
   const HeroArt = ART[heroMode];
   const heroName = modeByKey(heroMode).name;
 
-  // Tapping the buddy gets a grin.
-  const [poked, setPoked] = useState(false);
-  const pokeTimer = useRef(null);
-  useEffect(() => () => clearTimeout(pokeTimer.current), []);
+  // Tapping the buddy makes it jump, a different jump each time. A tap mid-jump only
+  // says hi; the next jump waits for this one to land.
+  const [jump, setJump] = useState({ n: 0, motion: null });
+  const jumping = useRef(false);
   const poke = () => {
     g.emit("tap");
-    setPoked(true);
-    clearTimeout(pokeTimer.current);
-    pokeTimer.current = setTimeout(() => setPoked(false), 1100);
+    if (jumping.current) return;
+    jumping.current = true;
+    setJump((j) => ({ n: j.n + 1, motion: POKES[j.n % POKES.length] }));
   };
-  const mood = poked ? "happy" : "idle";
 
   return (
     <main className="bd-page with-tabs bd-in">
       <div className="bd-home-head">
         <button type="button" className="bd-home-buddy" onClick={poke} aria-label="Say hi">
-          <span key={mood} className={`bd-buddy-pop${poked ? " hop" : ""}`}>
-            <Buddy mood={mood} />
-          </span>
+          <LiveBuddy jump={jump} fx={jumpFx(g.prefs)} onSettle={() => (jumping.current = false)} />
         </button>
         <Bubble tail="left" className="bd-greet">
           <h1 className="bd-h1">{greeting(g.history)}</h1>

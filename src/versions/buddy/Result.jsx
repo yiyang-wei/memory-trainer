@@ -4,7 +4,8 @@ import { countOf, formatDuration, formatSpeed } from "../../engine/catalog.js";
 import { Board, Bars, Confetti, modeVars } from "./ui.jsx";
 import { THEME } from "./theme.js";
 import { levelChip, accentFor } from "./Game.jsx";
-import Buddy, { Bubble } from "./Buddy.jsx";
+import { LiveBuddy, Bubble } from "./Buddy.jsx";
+import { BOING, RECORD, after, lower, jumpFx } from "./jumps.js";
 
 // What the buddy makes of the run.
 const verdict = (r, endReason) => {
@@ -40,6 +41,10 @@ export default function Result({ g, onAgain, onRecords, onClose }) {
   }
 
   const v = verdict(r, g.endReason);
+  // A record gets the big leap and a nice run a hop, once the sheet has slid up. Its
+  // bubble is just above, so the leap is lower here and the bubble stays in front.
+  const leap = v.record ? lower(RECORD, 0.6) : v.mood === "happy" ? lower(BOING, 0.7) : null;
+  const jump = leap ? { n: 1, motion: after(leap, 0.45) } : null;
   const runs = g.history.filter((h) =>
     g.isChallenge ? h.challengeId === g.challengeId : h.intent === "practice" && h.mode === g.mode
   );
@@ -84,9 +89,7 @@ export default function Result({ g, onAgain, onRecords, onClose }) {
             <Bubble tail="down" className={`bd-verdict-say${v.record ? " gold" : ""}`}>
               {v.say}
             </Bubble>
-            <span className={`bd-buddy-pop${v.record ? " hop" : ""}`}>
-              <Buddy mood={v.mood} accent={accentFor(g.mode)} label={v.say} />
-            </span>
+            <LiveBuddy mood={v.mood} accent={accentFor(g.mode)} label={v.say} jump={jump} fx={jumpFx(g.prefs)} />
           </div>
         </div>
 

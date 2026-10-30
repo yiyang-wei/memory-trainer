@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import "./motions.css";
-import { useJump } from "./jump.js";
+import { useJump } from "../engine/jump.js";
 import {
   useTimeline,
   useLoop,
