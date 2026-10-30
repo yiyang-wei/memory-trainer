@@ -18,9 +18,12 @@ const ALL_MOODS = ["idle", "watch", "think", "happy", "cheer", "oops", "gentle",
 
 function usePrefs() {
   const [prefs, setPrefs] = useState(() => {
-    const base = { sound: true, haptics: true, auto: true, design: "B01", unrated: false };
+    const base = { sound: true, haptics: true, auto: true, design: "B03", unrated: false, r2: true };
     try {
-      return { ...base, ...JSON.parse(localStorage.getItem(PREFS_KEY)) };
+      const saved = { ...base, ...JSON.parse(localStorage.getItem(PREFS_KEY)) };
+      // Round 2's motions are tuned on Mallow, so show them on it once; after that the
+      // pick sticks.
+      return saved.r2 ? saved : { ...saved, design: "B03", r2: true };
     } catch {
       return base;
     }
@@ -93,14 +96,17 @@ function Note({ value, onSave }) {
   );
 }
 
-function Card({ code, name, blurb, tag, entry, onRate, stage, stageProps, wide, cardRef }) {
+function Card({ code, name, blurb, tag, fresh, entry, onRate, stage, stageProps, wide, cardRef }) {
   const stars = entry?.stars || 0;
   return (
     <article ref={cardRef} className={`lab-card${stars ? " rated" : ""}${wide ? " wide" : ""}`} id={code}>
       <header className="lab-card-head">
         <span className="lab-code">{code}</span>
         <span className="lab-card-title">
-          <span className="lab-card-name">{name}</span>
+          <span className="lab-card-name">
+            {name}
+            {fresh && <span className="lab-new">New</span>}
+          </span>
           {blurb && <span className="lab-card-blurb">{blurb}</span>}
         </span>
         {tag}
@@ -218,6 +224,7 @@ function MotionCard({ m, D, entry, onRate, prefs }) {
         code={m.code}
         name={m.name}
         blurb={m.blurb}
+        fresh={m.fresh}
         entry={entry}
         onRate={onRate}
         tag={
@@ -241,10 +248,15 @@ function MotionCard({ m, D, entry, onRate, prefs }) {
   );
 }
 
-function DesignPicker({ value, onChange }) {
+function DesignPicker({ value, onChange, all }) {
+  const rank = (d) => {
+    const stars = all[d.code]?.stars || 0;
+    return stars === 5 ? 0 : d.fresh ? 1 : 2 + (5 - stars);
+  };
+  const order = [...DESIGNS].sort((a, b) => rank(a) - rank(b));
   return (
     <div className="lab-picker" role="radiogroup" aria-label="Buddy to show faces and motions on">
-      {DESIGNS.map((d) => (
+      {order.map((d) => (
         <button
           key={d.code}
           type="button"
@@ -258,6 +270,21 @@ function DesignPicker({ value, onChange }) {
         </button>
       ))}
     </div>
+  );
+}
+
+// This round's new items first, then a divider, then everything from earlier rounds.
+const newFirst = (items) => {
+  const fresh = items.filter((x) => x.fresh);
+  const old = items.filter((x) => !x.fresh);
+  return fresh.length && old.length ? [...fresh, { divider: true }, ...old] : [...fresh, ...old];
+};
+
+function Earlier() {
+  return (
+    <h3 className="lab-earlier">
+      <span>Earlier</span>
+    </h3>
   );
 }
 
@@ -298,13 +325,16 @@ export default function Lab() {
   const sections = useMemo(
     () => [
       { key: "B", title: "Buddies", sub: "Tap a buddy to see all its moods.", codes: DESIGNS.map((d) => d.code) },
-      { key: "F", title: "Faces", sub: "On the buddy picked below.", codes: FACE_CODES.map((f) => f.code), picker: true },
       { key: "M", title: "Motions", sub: "Tap a stage to play it with sound and vibration.", codes: MOTIONS.map((m) => m.code), picker: true },
+      { key: "F", title: "Faces", sub: "On the buddy picked below.", codes: FACE_CODES.map((f) => f.code), picker: true },
     ],
     []
   );
-  const total = sections.reduce((n, s) => n + s.codes.length, 0);
-  const rated = sections.reduce((n, s) => n + s.codes.filter((c) => all[c]?.stars).length, 0);
+  // The progress pill counts this round's new items while there are any.
+  const freshCodes = [...DESIGNS, ...MOTIONS].filter((x) => x.fresh).map((x) => x.code);
+  const counted = freshCodes.length ? freshCodes : sections.flatMap((s) => s.codes);
+  const total = counted.length;
+  const rated = counted.filter((c) => all[c]?.stars).length;
   // "Unrated only" hides what's rated, but keeps a card visible right after rating it so
   // it doesn't vanish under the thumb.
   const [keep, setKeep] = useState(() => new Set());
@@ -330,7 +360,7 @@ export default function Lab() {
       <header className="lab-top">
         <div className="lab-top-row">
           <h1>Buddy Lab</h1>
-          <span className="lab-progress" aria-label={`${rated} of ${total} rated`}>
+          <span className="lab-progress" aria-label={`${rated} of ${total} ${freshCodes.length ? "new items " : ""}rated`}>
             <Star size={15} fill="#E0AA3E" strokeWidth={0} />
             {rated}/{total}
           </span>
@@ -386,20 +416,25 @@ export default function Lab() {
               <h2>{s.title}</h2>
               <p>{s.sub}</p>
             </div>
-            {s.picker && <DesignPicker value={prefs.design} onChange={(code) => setPref({ design: code })} />}
+            {s.picker && <DesignPicker value={prefs.design} all={all} onChange={(code) => setPref({ design: code })} />}
             <div className="lab-grid">
               {s.key === "B" &&
-                DESIGNS.filter((d) => shown(d.code)).map((d) => (
-                  <Card
-                    key={d.code}
-                    code={d.code}
-                    name={d.name}
-                    blurb={d.blurb}
-                    entry={all[d.code]}
-                    onRate={rateKeep}
-                    stage={<DesignStage d={d} />}
-                  />
-                ))}
+                newFirst(DESIGNS.filter((d) => shown(d.code))).map((d) =>
+                  d.divider ? (
+                    <Earlier key="earlier" />
+                  ) : (
+                    <Card
+                      key={d.code}
+                      code={d.code}
+                      name={d.name}
+                      blurb={d.blurb}
+                      fresh={d.fresh}
+                      entry={all[d.code]}
+                      onRate={rateKeep}
+                      stage={<DesignStage d={d} />}
+                    />
+                  )
+                )}
               {s.key === "F" &&
                 FACE_CODES.filter((f) => shown(f.code)).map((f) => (
                   <Card
@@ -412,9 +447,9 @@ export default function Lab() {
                   />
                 ))}
               {s.key === "M" &&
-                MOTIONS.filter((m) => shown(m.code)).map((m) => (
-                  <MotionCard key={m.code} m={m} D={D} entry={all[m.code]} onRate={rateKeep} prefs={prefs} />
-                ))}
+                newFirst(MOTIONS.filter((m) => shown(m.code))).map((m) =>
+                  m.divider ? <Earlier key="earlier" /> : <MotionCard key={m.code} m={m} D={D} entry={all[m.code]} onRate={rateKeep} prefs={prefs} />
+                )}
             </div>
           </section>
         ))}

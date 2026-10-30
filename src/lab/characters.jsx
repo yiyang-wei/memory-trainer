@@ -13,6 +13,9 @@ import "./characters.css";
 //   attribute (a CSS transform would replace it): lb-all (everything), lb-body,
 //   lb-top (antenna, ears, hair — whatever should lag behind), lb-arm-l, lb-arm-r,
 //   lb-feet. Each sets its transform-origin in viewBox px (transform-box: view-box).
+// - lb-tail (optional, inside lb-body): a ghost's hem, a wisp's tail, a cloud's underside
+//   puffs. Its origin is the line where it hangs from the body, and it is tucked far enough
+//   inside the body that rotating it ±12° or scaling it 0.85–1.2 never opens a gap.
 // - The die-cut edge is a fatter white copy of each part drawn behind its colour.
 
 export const BODY = "#8CA0DB";
@@ -596,6 +599,463 @@ function Chameleon({ mood = "idle", size, look, accent, face = "ring", label }) 
   );
 }
 
+// ---------- Round 2: ghosts and clouds ----------
+//
+// More in the direction of B03 Mallow and B10 Cloud. A ghost's hem is its own part
+// (lb-tail) so motions can let it flutter. To join a part to the body without a seam,
+// draw the body with its edge, then the part with its own edge, then the body's fill once
+// more on top (<Refill>): that hides the part's edge wherever it is tucked inside the body.
+
+const Refill = ({ d, color, className }) => <path className={className} d={d} fill={color} />;
+
+function Tail({ d, color, origin, className, children }) {
+  return (
+    <g className="lb-tail" style={{ transformOrigin: origin }}>
+      <path className={className} d={d} fill={color} {...EDGE} />
+      {children}
+    </g>
+  );
+}
+
+// A hem band from `top` (tucked inside the body) down to `y`, ending in n round scallops
+// `depth` deep, drawn right to left.
+const hem = (x0, x1, top, y, n, depth) => {
+  const w = (x1 - x0) / n;
+  const bumps = Array.from({ length: n }, () => `a${w / 2} ${depth} 0 0 1 ${-w} 0`).join(" ");
+  return `M${x0} ${top} H${x1} V${y} ${bumps} Z`;
+};
+
+// Puffy bodies made of circles and rounded rects ([x, y, r] or [x, y, w, h, rx]): every
+// white edge first, then every fill, so the puffs merge into one sticker.
+const shape = (s, props) =>
+  s.length === 3 ? <circle cx={s[0]} cy={s[1]} r={s[2]} {...props} /> : <rect x={s[0]} y={s[1]} width={s[2]} height={s[3]} rx={s[4]} {...props} />;
+
+function Puffs({ shapes, color, edge = true, className }) {
+  return (
+    <>
+      {edge && shapes.map((s, i) => <React.Fragment key={`e${i}`}>{shape(s, { fill: "#fff", stroke: "#fff", strokeWidth: 8 })}</React.Fragment>)}
+      {shapes.map((s, i) => (
+        <React.Fragment key={`f${i}`}>{shape(s, { fill: color, className })}</React.Fragment>
+      ))}
+    </>
+  );
+}
+
+// ---------- B13 · Puff (Mallow, rounder) ----------
+
+const PUFF = { body: "#DCD5F7", deep: "#B4A7EB" };
+const PUFF_D = "M28 66 C 28 44, 42 30, 60 30 C 78 30, 92 44, 92 66 L 92 88 L 28 88 Z";
+const PUFF_ARMS = {
+  down: ["M30 74 L24 82", "M90 74 L96 82"],
+  out: ["M30 70 L19 67", "M90 70 L101 67"],
+  up: ["M31 64 L24 52", "M89 64 L96 52"],
+  wave: "M90 66 L100 55",
+  chin: "M89 79 L80 83",
+};
+
+function Puff({ mood = "idle", size, look, face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={PUFF_ARMS} mood={mood} color={PUFF.body} width={10} left="31px 71px" right="89px 71px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 100px" }}>
+        <g className="lb-top" style={{ transformOrigin: "60px 32px" }}>
+          <path d="M60 33 q -3 -8 4 -9.5 q 4.5 -0.5 2.5 4" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" />
+          <path d="M60 33 q -3 -8 4 -9.5 q 4.5 -0.5 2.5 4" fill="none" stroke={PUFF.deep} strokeWidth="3.2" strokeLinecap="round" />
+        </g>
+        <path d={PUFF_D} fill={PUFF.body} {...EDGE} />
+        <Tail d={hem(28, 92, 78, 95, 3, 7)} color={PUFF.body} origin="60px 88px" />
+        <Refill d={PUFF_D} color={PUFF.body} />
+        <Face kind={face} mood={mood} x={60} y={61} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[28, 30, 92, 102]} />
+    </Sticker>
+  );
+}
+
+// ---------- B14 · Wisp (teardrop, tail curls to one side) ----------
+
+const WISP = { body: "#CDEBDB", deep: "#8DCBAC" };
+const WISP_D = "M31 56 C 31 39, 44 27, 60 27 C 76 27, 89 39, 89 56 C 89 70, 81 80, 72 86 L 50 86 C 39 80, 31 70, 31 56 Z";
+const WISP_TAIL =
+  "M42 74 L80 74 L72 86 C 69 92, 72 97, 78 97 C 83 97, 87 93, 89 88 C 91 98, 83 106, 71 106 C 57 106, 48 98, 50 86 Z";
+const WISP_ARMS = {
+  down: ["M33 64 L27 72", "M87 64 L93 72"],
+  out: ["M33 60 L22 57", "M87 60 L98 57"],
+  up: ["M34 54 L27 43", "M86 54 L93 43"],
+  wave: "M87 56 L97 46",
+  chin: "M85 70 L77 74",
+};
+
+function Wisp({ mood = "idle", size, look, face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={WISP_ARMS} mood={mood} color={WISP.body} width={9} left="34px 61px" right="86px 61px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 100px" }}>
+        <g className="lb-top" />
+        <path d={WISP_D} fill={WISP.body} {...EDGE} />
+        <Tail d={WISP_TAIL} color={WISP.body} origin="61px 84px" />
+        <Refill d={WISP_D} color={WISP.body} />
+        <Face kind={face} mood={mood} x={60} y={55} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[31, 27, 89, 104]} />
+    </Sticker>
+  );
+}
+
+// ---------- B15 · Sheet (a little sheet ghost with a bow) ----------
+
+const SHEET = { body: "#E1E6F8", deep: "#B1BDEA" };
+const SHEET_D = "M37 60 C 37 41, 47 30, 60 30 C 73 30, 83 41, 83 60 C 83 72, 86 80, 89 88 L 31 88 C 34 80, 37 72, 37 60 Z";
+const SHEET_TAIL = "M36 78 H84 L89 88 L92 96 Q 85 105, 76 98 Q 68 103, 61 98.5 Q 52 105, 44 98 Q 36 103, 28 96 L31 88 Z";
+const SHEET_ARMS = {
+  down: ["M38 70 L31 79", "M82 70 L89 79"],
+  out: ["M38 66 L27 63", "M82 66 L93 63"],
+  up: ["M39 60 L32 48", "M81 60 L88 48"],
+  wave: "M82 62 L92 51",
+  chin: "M81 76 L72 80",
+};
+
+function Sheet({ mood = "idle", size, look, accent = "#E0778C", face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={SHEET_ARMS} mood={mood} color={SHEET.body} width={9} left="39px 67px" right="81px 67px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 100px" }}>
+        <path d={SHEET_D} fill={SHEET.body} {...EDGE} />
+        <Tail d={SHEET_TAIL} color={SHEET.body} origin="60px 88px">
+          <g fill="none" stroke={SHEET.deep} strokeWidth="2.2" strokeLinecap="round">
+            <path d="M46 90 q -1 4 -2.5 7" />
+            <path d="M75 90 q 1 4 2 7" />
+          </g>
+        </Tail>
+        <Refill d={SHEET_D} color={SHEET.body} />
+        <g className="lb-top" style={{ transformOrigin: "71px 35px" }}>
+          <g transform="translate(72 33) rotate(18) scale(1.25)">
+            <g fill="#fff" stroke="#fff" strokeWidth="6" strokeLinejoin="round">
+              <path d="M0 0 C -4 -7, -11 -6, -10 0 C -9 5, -4 4, 0 0 Z" />
+              <path d="M0 0 C 4 -7, 11 -6, 10 0 C 9 5, 4 4, 0 0 Z" />
+            </g>
+            <g fill={accent}>
+              <path d="M0 0 C -4 -7, -11 -6, -10 0 C -9 5, -4 4, 0 0 Z" />
+              <path d="M0 0 C 4 -7, 11 -6, 10 0 C 9 5, 4 4, 0 0 Z" />
+              <circle r="3.3" />
+            </g>
+            <circle r="3.3" fill="rgba(59, 63, 81, 0.16)" />
+          </g>
+        </g>
+        <Face kind={face} mood={mood} x={60} y={59} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[31, 30, 89, 104]} />
+    </Sticker>
+  );
+}
+
+// ---------- B16 · Mochi (wide and low, with a sakura leaf) ----------
+
+const MOCHI = { body: "#F7D6DF", deep: "#EBA4B6", leaf: "#93CDAE", vein: "#6FB18F" };
+const MOCHI_D = "M22 80 C 22 59, 38 47, 60 47 C 82 47, 98 59, 98 80 L 98 92 L 22 92 Z";
+const MOCHI_ARMS = {
+  down: ["M24 84 L18 91", "M96 84 L102 91"],
+  out: ["M23 79 L12 76", "M97 79 L108 76"],
+  up: ["M25 72 L17 61", "M95 72 L103 61"],
+  wave: "M96 74 L106 63",
+  chin: "M93 86 L84 89",
+};
+
+function Mochi({ mood = "idle", size, look, face = "bead", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={MOCHI_ARMS} mood={mood} color={MOCHI.body} width={9} left="25px 80px" right="95px 80px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 101px" }}>
+        <path d={MOCHI_D} fill={MOCHI.body} {...EDGE} />
+        <Tail d={hem(22, 98, 84, 96, 5, 6)} color={MOCHI.body} origin="60px 92px" />
+        <Refill d={MOCHI_D} color={MOCHI.body} />
+        <g className="lb-top" style={{ transformOrigin: "58px 48px" }}>
+          <g transform="translate(49 50) rotate(-16)">
+            <path d="M0 0 C 6 -9, 20 -9, 26 -2 C 19 4, 7 5, 0 0 Z" fill={MOCHI.leaf} {...EDGE} />
+            <path d="M3 -0.5 C 10 -3, 17 -3.5, 22 -2.5" fill="none" stroke={MOCHI.vein} strokeWidth="1.8" strokeLinecap="round" />
+          </g>
+        </g>
+        <Face kind={face} mood={mood} x={60} y={73} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[22, 44, 98, 101]} />
+    </Sticker>
+  );
+}
+
+// ---------- B17 · Dozy (nightcap with a pompom) ----------
+
+const DOZY = { body: "#C6D0F1", deep: "#91A3E0", cap: "#B6A8EA", brim: "#EEEAFB" };
+const DOZY_D = "M30 68 C 30 46, 43 35, 60 35 C 77 35, 90 46, 90 68 L 90 90 L 30 90 Z";
+const DOZY_ARMS = {
+  down: ["M32 77 L25 86", "M88 77 L95 86"],
+  out: ["M32 74 L21 70", "M88 74 L99 70"],
+  up: ["M33 68 L25 55", "M87 68 L95 55"],
+  wave: "M88 70 L98 58",
+  chin: "M87 83 L79 88",
+};
+
+function Dozy({ mood = "idle", size, look, accent = "#E0AA3E", face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={DOZY_ARMS} mood={mood} color={DOZY.body} width={9} left="33px 75px" right="87px 75px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 101px" }}>
+        <path d={DOZY_D} fill={DOZY.body} {...EDGE} />
+        <Tail d={hem(30, 90, 80, 96, 4, 6)} color={DOZY.body} origin="60px 90px" />
+        <Refill d={DOZY_D} color={DOZY.body} />
+        <g className="lb-top" style={{ transformOrigin: "60px 40px" }}>
+          <path d="M41 42 C 40 28, 50 18, 62 18 C 74 18, 85 25, 92 36 C 94 40, 96 44, 96 48 C 92 44, 86 41, 80 42 Q 60 32, 41 42 Z" fill={DOZY.cap} {...EDGE} />
+          <Limb d="M41 43 Q 60 33, 80 43" color={DOZY.brim} width={8} />
+          <circle cx="97" cy="51" r="6" fill={accent} {...EDGE} />
+        </g>
+        <Face kind={face} mood={mood} x={60} y={68} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[30, 30, 90, 102]} />
+    </Sticker>
+  );
+}
+
+// ---------- B18 · Tint (takes a pale tint of the exercise colour) ----------
+
+// Pale and deep tints of each mode colour. With no accent the body walks through all
+// four (see characters.css), the way the lab shows B12 Chameleon.
+const TINTS = {
+  "#8CA0DB": ["#D3DBF3", "#A6B5E8"],
+  "#7FBF9E": ["#CDE9DA", "#92CDB0"],
+  "#E0AA3E": ["#F5E0B5", "#E6BE70"],
+  "#E0778C": ["#F6D2DA", "#EAA0B1"],
+};
+const toWhite = (hex, w) => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (255 - v) * w));
+  return `rgb(${c.join(",")})`;
+};
+const tintOf = (accent) => TINTS[accent?.toUpperCase?.()] || [toWhite(accent, 0.66), toWhite(accent, 0.36)];
+
+const TINT_D = "M30 70 C 30 50, 43 37, 60 37 C 77 37, 90 50, 90 70 L 90 90 L 30 90 Z";
+const TINT_TIP = "M50 44 C 52 36, 57 30, 62 24 C 64 21.5, 66 20.5, 68.5 21 C 68 27, 69.5 33, 71 39 C 72 42, 71 44, 70 45 Z";
+const TINT_TAIL =
+  "M30 82 H90 V95 C 88 99, 85 103, 82.5 105 C 80 103, 77 99, 75 96 C 73 99, 70 103, 67.5 105 C 65 103, 62 99, 60 96 C 58 99, 55 103, 52.5 105 C 50 103, 47 99, 45 96 C 43 99, 40 103, 37.5 105 C 35 103, 32 99, 30 95 Z";
+const TINT_ARMS = {
+  down: ["M32 78 L25 87", "M88 78 L95 87"],
+  out: ["M32 75 L21 71", "M88 75 L99 71"],
+  up: ["M33 69 L25 56", "M87 69 L95 56"],
+  wave: "M88 71 L98 59",
+  chin: "M87 84 L79 89",
+};
+
+function Tint({ mood = "idle", size, look, accent, face = "dot", label }) {
+  const [body] = accent ? tintOf(accent) : TINTS["#7FBF9E"];
+  const cyc = accent ? undefined : "ch-tint";
+  const [l, r] = pose(TINT_ARMS, mood);
+  return (
+    <Sticker size={size} label={label}>
+      {[
+        ["lb-arm-l", "33px 76px", l],
+        ["lb-arm-r", "87px 76px", r],
+      ].map(([cls, origin, d]) => (
+        <g key={cls} className={cls} style={{ transformOrigin: origin }}>
+          <path d={d} fill="none" stroke="#fff" strokeWidth="17" strokeLinecap="round" />
+          <path className={accent ? undefined : "ch-tint-s"} d={d} fill="none" stroke={body} strokeWidth="9" strokeLinecap="round" />
+        </g>
+      ))}
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 102px" }}>
+        <path className={cyc} d={TINT_D} fill={body} {...EDGE} />
+        <g className="lb-top" style={{ transformOrigin: "61px 40px" }}>
+          <path className={cyc} d={TINT_TIP} fill={body} {...EDGE} />
+        </g>
+        <Tail className={cyc} d={TINT_TAIL} color={body} origin="60px 90px" />
+        <Refill className={cyc} d={TINT_D} color={body} />
+        <Face kind={face} mood={mood} x={60} y={67} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[30, 22, 90, 104]} />
+    </Sticker>
+  );
+}
+
+// ---------- B19 · Halo ----------
+
+const HALO = { body: "#F7E0C6", deep: "#E8BC8D", ring: "#E0AA3E" };
+const HALO_D = "M32 66 C 32 47, 44 36, 60 36 C 76 36, 88 47, 88 66 L 88 88 L 32 88 Z";
+const HALO_ARMS = {
+  down: ["M34 74 L28 82", "M86 74 L92 82"],
+  out: ["M34 70 L23 67", "M86 70 L97 67"],
+  up: ["M35 64 L28 52", "M85 64 L92 52"],
+  wave: "M86 66 L96 55",
+  chin: "M85 79 L77 83",
+};
+
+function Halo({ mood = "idle", size, look, face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={HALO_ARMS} mood={mood} color={HALO.body} width={9} left="35px 71px" right="85px 71px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 100px" }}>
+        <path d={HALO_D} fill={HALO.body} {...EDGE} />
+        <Tail d={hem(32, 88, 78, 95, 3, 6.5)} color={HALO.body} origin="60px 88px" />
+        <Refill d={HALO_D} color={HALO.body} />
+        <g className="lb-top" style={{ transformOrigin: "60px 36px" }}>
+          <ellipse cx="60" cy="22" rx="15" ry="4.6" fill="none" stroke="#fff" strokeWidth="11" />
+          <ellipse cx="60" cy="22" rx="15" ry="4.6" fill="none" stroke={HALO.ring} strokeWidth="3.8" />
+        </g>
+        <Face kind={face} mood={mood} x={60} y={63} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[32, 30, 88, 102]} />
+    </Sticker>
+  );
+}
+
+// ---------- B20 · Fluff (a puffier cloud) ----------
+
+const FLUFF = { body: "#F2DBE8", deep: "#DDAAC6" };
+const FLUFF_BODY = [[38, 74, 16], [59, 60, 21], [81, 71, 17], [26, 68, 68, 28, 14]];
+const FLUFF_UNDER = [[41, 94, 9], [60, 97, 10], [79, 94, 9]];
+const FLUFF_HANDS = {
+  down: [dot(20, 94), dot(100, 94)],
+  out: [dot(11, 80), dot(109, 80)],
+  up: [dot(17, 58), dot(103, 58)],
+  wave: dot(105, 60),
+  chin: dot(79, 92),
+};
+
+function Fluff({ mood = "idle", size, look, face = "bead", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={FLUFF_HANDS} mood={mood} color={FLUFF.deep} width={12} left="30px 84px" right="90px 84px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 104px" }}>
+        <g className="lb-top" />
+        <Puffs shapes={FLUFF_BODY} color={FLUFF.body} />
+        <g className="lb-tail" style={{ transformOrigin: "60px 92px" }}>
+          <Puffs shapes={FLUFF_UNDER} color={FLUFF.body} />
+        </g>
+        <Puffs shapes={FLUFF_BODY} color={FLUFF.body} edge={false} />
+        <Face kind={face} mood={mood} x={60} y={77} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[22, 40, 98, 104]} />
+    </Sticker>
+  );
+}
+
+// ---------- B21 · Sky (its weather follows its mood) ----------
+
+const SKY = { body: "#D3DEF6", deep: "#A2B5E7", sun: "#E0AA3E", drop: "#8CA0DB", moon: "#F2D69A" };
+const SKY_BODY = [[31, 80, 12], [45, 64, 17], [75, 64, 17], [89, 80, 12], [22, 66, 76, 32, 16]];
+const SKY_HANDS = {
+  down: [dot(15, 96), dot(105, 96)],
+  out: [dot(8, 80), dot(112, 80)],
+  up: [dot(14, 56), dot(106, 56)],
+  wave: dot(108, 58),
+  chin: dot(80, 94),
+};
+const STICK_EDGE = { stroke: "#fff", strokeWidth: 7, paintOrder: "stroke", strokeLinejoin: "round" };
+
+// Weather drawn behind the cloud (sun, rainbow, moon) or below it (rain).
+function SkyWeather({ mood }) {
+  if (mood === "happy") {
+    return (
+      <g>
+        <g stroke="#fff" strokeWidth="9" strokeLinecap="round">
+          {[-70, -35, 0, 35].map((a) => (
+            <path key={a} d="M0 -17 V-23" transform={`translate(92 44) rotate(${a})`} />
+          ))}
+        </g>
+        <g stroke={SKY.sun} strokeWidth="3.6" strokeLinecap="round">
+          {[-70, -35, 0, 35].map((a) => (
+            <path key={a} d="M0 -17 V-23" transform={`translate(92 44) rotate(${a})`} />
+          ))}
+        </g>
+        <circle cx="92" cy="44" r="12" fill={SKY.sun} {...STICK_EDGE} />
+      </g>
+    );
+  }
+  if (mood === "cheer") {
+    const bands = [
+      [21, "#E0778C"],
+      [15.5, "#E0AA3E"],
+      [10, "#7FBF9E"],
+    ];
+    const arc = (r) => `M${60 - r} 56 A ${r} ${r} 0 0 1 ${60 + r} 56`;
+    return (
+      <g fill="none">
+        <path d={arc(15.5)} stroke="#fff" strokeWidth="25" />
+        {bands.map(([r, c]) => (
+          <path key={r} d={arc(r)} stroke={c} strokeWidth="5.6" />
+        ))}
+      </g>
+    );
+  }
+  if (mood === "sleep") {
+    return <path d="M26 30 A 11 11 0 1 0 38 44 A 9 9 0 1 1 26 30 Z" fill={SKY.moon} {...STICK_EDGE} />;
+  }
+  return null;
+}
+
+function SkyRain() {
+  const drop = (x, y, s) => `M${x} ${y} C ${x + 3 * s} ${y + 5 * s}, ${x + 4 * s} ${y + 8 * s}, ${x} ${y + 10 * s} C ${x - 4 * s} ${y + 8 * s}, ${x - 3 * s} ${y + 5 * s}, ${x} ${y} Z`;
+  return (
+    <g className="ch-rain" fill={SKY.drop} {...STICK_EDGE}>
+      <path d={drop(42, 102, 1.05)} />
+      <path d={drop(62, 105, 1.2)} />
+      <path d={drop(80, 101, 0.95)} />
+    </g>
+  );
+}
+
+function Sky({ mood = "idle", size, look, face = "dot", label }) {
+  // Its own weather stands in for the usual sparkles (cheer) and sweat (oops).
+  const extras = mood === "cheer" || mood === "oops" ? null : <MoodExtras mood={mood} box={[20, 46, 100, 98]} />;
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={SKY_HANDS} mood={mood} color={SKY.deep} width={12} left="28px 84px" right="92px 84px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 100px" }}>
+        <g className="lb-top">
+          <SkyWeather mood={mood} />
+        </g>
+        <Puffs shapes={SKY_BODY} color={SKY.body} />
+        {mood === "oops" && <SkyRain />}
+        <Face kind={face} mood={mood} x={60} y={79} look={look} />
+      </g>
+      {extras}
+    </Sticker>
+  );
+}
+
+// ---------- B22 · Mist (cloud on top, ghost below) ----------
+
+const MIST = { body: "#D4EAEC", deep: "#98C9CE" };
+const MIST_BODY = [[38, 53, 13], [60, 43, 16], [82, 53, 13], [30, 54, 60, 38, 8]];
+const MIST_ARMS = {
+  down: ["M31 74 L24 83", "M89 74 L96 83"],
+  out: ["M31 71 L20 67", "M89 71 L100 67"],
+  up: ["M32 65 L24 52", "M88 65 L96 52"],
+  wave: "M89 67 L99 55",
+  chin: "M88 80 L80 85",
+};
+
+function Mist({ mood = "idle", size, look, face = "dot", label }) {
+  return (
+    <Sticker size={size} label={label}>
+      <Arms table={MIST_ARMS} mood={mood} color={MIST.body} width={9} left="32px 72px" right="88px 72px" />
+      <g className="lb-feet" />
+      <g className="lb-body" style={{ transformOrigin: "60px 101px" }}>
+        <g className="lb-top" />
+        <Puffs shapes={MIST_BODY} color={MIST.body} />
+        <Tail d={hem(30, 90, 82, 95, 4, 6)} color={MIST.body} origin="60px 92px" />
+        <Puffs shapes={MIST_BODY} color={MIST.body} edge={false} />
+        <Face kind={face} mood={mood} x={60} y={66} look={look} />
+      </g>
+      <MoodExtras mood={mood} box={[25, 27, 95, 101]} />
+    </Sticker>
+  );
+}
+
 export const DESIGNS = [
   { code: "B01", name: "Bot", blurb: "Today's buddy, for reference", face: "dot", Buddy: Bot },
   { code: "B02", name: "Bean", blurb: "A jellybean with a sprout", face: "bead", Buddy: Bean },
@@ -609,6 +1069,16 @@ export const DESIGNS = [
   { code: "B10", name: "Cloud", blurb: "Soft cloud with floating hands", face: "bead", Buddy: Cloud },
   { code: "B11", name: "Octo", blurb: "A clever octopus", face: "spark", Buddy: Octo },
   { code: "B12", name: "Chameleon", blurb: "Takes each exercise's colour", face: "ring", Buddy: Chameleon },
+  { code: "B13", name: "Puff", blurb: "Mallow, rounder and softer", face: "dot", fresh: true, Buddy: Puff },
+  { code: "B14", name: "Wisp", blurb: "Teardrop with a curly tail", face: "dot", fresh: true, Buddy: Wisp },
+  { code: "B15", name: "Sheet", blurb: "Little sheet ghost with a bow", face: "dot", fresh: true, Buddy: Sheet },
+  { code: "B16", name: "Mochi", blurb: "Wide, squishy, sakura leaf", face: "bead", fresh: true, Buddy: Mochi },
+  { code: "B17", name: "Dozy", blurb: "Sleepy ghost in a nightcap", face: "dot", fresh: true, Buddy: Dozy },
+  { code: "B18", name: "Tint", blurb: "Takes a tint of each exercise", face: "dot", fresh: true, Buddy: Tint },
+  { code: "B19", name: "Halo", blurb: "A ghost with a little halo", face: "dot", fresh: true, Buddy: Halo },
+  { code: "B20", name: "Fluff", blurb: "Puffier cotton-candy cloud", face: "bead", fresh: true, Buddy: Fluff },
+  { code: "B21", name: "Sky", blurb: "Its weather follows its mood", face: "dot", fresh: true, Buddy: Sky },
+  { code: "B22", name: "Mist", blurb: "Cloud on top, ghost below", face: "dot", fresh: true, Buddy: Mist },
 ];
 
 export const designByCode = (code) => DESIGNS.find((d) => d.code === code) || DESIGNS[0];

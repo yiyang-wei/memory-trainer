@@ -83,6 +83,13 @@ code. Ratings are kept in localStorage and, under `npm run dev`, also posted to
 `.lab/ratings.json` (gitignored). A phone on the LAN and the laptop therefore share one
 set of ratings, and the file can be read directly.
 
+Lab items marked `fresh` are the current round. They are listed first with a "New" chip and
+counted by the progress pill. The current round follows the first round's picks: ghost and
+cloud buddies (B13–B22) and jumps (M25–M32). The jumps come from `src/lab/jump.js`, which
+simulates each jump once (crouch, flight with hang time, landing, spring settle). It plays
+the body's path on the figure and squash/stretch on `lb-all`, and drives the arms, antenna,
+face and the ghosts' `lb-tail` with springs, so they lag and settle on their own.
+
 The versions share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported
 from the classic component, plus run stats and history), `useNavigation` (screens in
 browser history, so Android's back gesture works), `catalog` (exercise and level facts)

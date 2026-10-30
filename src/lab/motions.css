@@ -1084,3 +1084,72 @@
     transform: rotate(var(--a)) translateX(62px);
   }
 }
+
+/* ---------- Physics jumps (M25–M32) ----------
+   The jumps themselves are Web Animations from jump.js; these are the extras. */
+
+/* Dust puffs out along the ground at touchdown. */
+.lab .mo-dust {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  z-index: 1;
+}
+
+.lab .mo-dust i {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #d6dbec;
+  box-shadow: 0 0 0 2px #fff;
+  animation: mo-dust 560ms cubic-bezier(0.2, 0.7, 0.3, 1) var(--d, 0ms) both;
+}
+
+/* Puffs start at the buddy's edges (half way out) so they aren't hidden behind it. */
+@keyframes mo-dust {
+  0% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * 0.5), 0) scale(calc(0.35 * var(--s)));
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(var(--s));
+  }
+}
+
+/* M29 · Star jump sparkles, flung out from the middle of the buddy. */
+.lab .mo-burst {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lab .mo-burst svg {
+  position: absolute;
+  left: -8px;
+  top: -8px;
+  overflow: visible;
+  animation: mo-burst 700ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes mo-burst {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(34px) rotate(calc(-1 * var(--a))) scale(0.3);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(80px) rotate(calc(-1 * var(--a))) scale(1.1) rotate(90deg);
+  }
+}

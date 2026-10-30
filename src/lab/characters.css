@@ -81,3 +81,91 @@
     stroke: #7fbf9e;
   }
 }
+
+/* B18 · Tint without an accent: walks through pale tints of the four exercise colours. */
+.lab .ch-tint {
+  animation: ch-tint 8s ease-in-out infinite;
+}
+
+.lab path.ch-tint-s {
+  animation: ch-tint-s 8s ease-in-out infinite;
+}
+
+@keyframes ch-tint {
+  0%,
+  20% {
+    fill: #cde9da;
+  }
+  25%,
+  45% {
+    fill: #d3dbf3;
+  }
+  50%,
+  70% {
+    fill: #f5e0b5;
+  }
+  75%,
+  95% {
+    fill: #f6d2da;
+  }
+  100% {
+    fill: #cde9da;
+  }
+}
+
+@keyframes ch-tint-s {
+  0%,
+  20% {
+    stroke: #cde9da;
+  }
+  25%,
+  45% {
+    stroke: #d3dbf3;
+  }
+  50%,
+  70% {
+    stroke: #f5e0b5;
+  }
+  75%,
+  95% {
+    stroke: #f6d2da;
+  }
+  100% {
+    stroke: #cde9da;
+  }
+}
+
+/* B21 · Sky: rain drips while it's in its oops mood. */
+.lab .ch-rain path {
+  animation: ch-rain 1.1s ease-in infinite;
+}
+
+.lab .ch-rain path:nth-child(2) {
+  animation-delay: -0.4s;
+}
+
+.lab .ch-rain path:nth-child(3) {
+  animation-delay: -0.75s;
+}
+
+@keyframes ch-rain {
+  0% {
+    opacity: 0;
+    translate: 0 -5px;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: 0 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab .ch-tint,
+  .lab path.ch-tint-s,
+  .lab .ch-rain path {
+    animation: none;
+  }
+}

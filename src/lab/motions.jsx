@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import "./motions.css";
+import { useJump } from "./jump.js";
 import {
   useTimeline,
   useLoop,
@@ -522,6 +523,245 @@ function Slap({ Buddy, run, fx, accent }) {
   );
 }
 
+// ---------- Physics jumps (round 2) ----------
+
+// These use the jump engine in jump.js: the body follows a simulated path and every rig
+// part (arms, antenna, face, skirt, feet) follows it on its own spring. The engine owns
+// the buddy's mood while it plays, so pose changes swing instead of snapping.
+
+// The buddy in a wrapper the engine can rig.
+function RigFig({ Buddy, figRef, size = 112, mood, look, accent, children }) {
+  return (
+    <div ref={figRef} className="mo-fig" style={{ width: size, height: size }}>
+      <Buddy mood={mood} size={size} look={look} accent={accent} />
+      {children}
+    </div>
+  );
+}
+
+// Dust that puffs out along the ground at touchdown, bigger for a harder landing.
+const PUFF = [
+  [-1, 0],
+  [-1, 1],
+  [1, 0],
+  [1, 1],
+];
+
+function Dust({ impact = 1 }) {
+  const s = Math.max(0.55, Math.min(1.15, impact));
+  return (
+    <span className="mo-dust" aria-hidden="true">
+      {PUFF.map(([side, up]) => (
+        <i
+          key={`${side}${up}`}
+          style={{ "--dx": `${side * (36 + up * 10) * s}px`, "--dy": `${-(2 + up * 8) * s}px`, "--s": s, "--d": `${up * 50}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+// Sparkles flung out from the buddy at the top of a star jump.
+const BURST = [
+  [-160, "#E0AA3E"],
+  [-110, "#E0778C"],
+  [-70, "#7FBF9E"],
+  [-20, "#8CA0DB"],
+  [200, "#A898E0"],
+  [20, "#E0AA3E"],
+];
+
+function Burst() {
+  return (
+    <span className="mo-burst" aria-hidden="true">
+      {BURST.map(([a, c]) => (
+        <svg key={a} viewBox="-8 -8 16 16" width="16" height="16" style={{ "--a": `${a}deg` }}>
+          <path d="M0 -7 L1.8 -1.8 L7 0 L1.8 1.8 L0 7 L-1.8 1.8 L-7 0 L-1.8 -1.8 Z" fill={c} stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" paintOrder="stroke" />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+// Landing dust and apex sparkles for a stage: call `onEvent` from useJump.
+function useJumpFx(n) {
+  const [s, set] = useRunState(n, { land: 0, impact: 1, apex: 0 });
+  const onEvent = (e) => {
+    if (e.type === "land" && e.impact > 0.5) set((v) => ({ ...v, land: v.land + 1, impact: e.impact }));
+    if (e.type === "apex") set((v) => ({ ...v, apex: v.apex + 1 }));
+  };
+  return [s, onEvent];
+}
+
+// A jump on the stage floor. `burst` adds sparkles at each apex.
+function makeJump(motion, { burst = false } = {}) {
+  return function Jump({ Buddy, run, fx, accent }) {
+    const ref = useRef(null);
+    const [mood, setMood] = useRunState(run.n, "idle");
+    const [jf, onEvent] = useJumpFx(run.n);
+    useJump(run.n, ref, motion, { setMood, fx, onEvent });
+    return (
+      <Stand runKey={run.n}>
+        {jf.land > 0 && <Dust key={`d-${run.n}-${jf.land}`} impact={jf.impact} />}
+        <RigFig key={run.n} figRef={ref} Buddy={Buddy} accent={accent} mood={mood}>
+          {burst && jf.apex > 0 && <Burst key={`b-${run.n}-${jf.apex}`} />}
+        </RigFig>
+      </Stand>
+    );
+  };
+}
+
+const quiet = [null, null, null];
+
+const BOING = {
+  hops: [{ h: 46, g: 1750, hang: 0.22, fx: [{ sound: "correct", vibe: 8 }, { vibe: 14 }] }],
+  settle: 0.9,
+  endAfter: 0.5,
+};
+
+const DOUBLE = {
+  hops: [
+    { h: 26, crouch: 0.13, g: 2300, hang: 0.1, arms: [-12, 18], mood: ["happy", "happy", null], fx: [{ sound: "correct", vibe: 8 }, { vibe: 10 }] },
+    { h: 54, crouch: 0.07, depth: 0.04, g: 1900, hang: 0.4, twirl: 360, mood: [null, "cheer", "happy"], fx: [{ sound: "correct", vibe: 8 }, { vibe: 16 }] },
+  ],
+  settle: 0.9,
+  endAfter: 0.55,
+};
+
+const FLOATY = {
+  hops: [
+    {
+      h: 58,
+      crouch: 0.2,
+      depth: 0.08,
+      g: 1300,
+      hang: 0.5,
+      float: 1,
+      sway: 12,
+      stretch: 0.06,
+      arms: [-10, 22],
+      mood: ["happy", "happy", "happy"],
+      fx: [{ sound: "correct", vibe: 8 }, { vibe: 8 }],
+    },
+  ],
+  settle: 1,
+  endAfter: 0.6,
+};
+
+const TUCK = {
+  hops: [{ h: 64, crouch: 0.18, depth: 0.13, g: 1700, hang: 0.2, spin: -360, tuck: 1, mood: ["happy", "happy", "cheer"], fx: ["clear", { vibe: 16 }] }],
+  settle: 0.9,
+  endAfter: 0.8,
+};
+
+const STAR = {
+  hops: [{ h: 50, star: 1, hang: 0.5, arms: [-26, 4], mood: ["happy", "happy", "happy"], fx: [{ sound: "correct", vibe: 8 }, { vibe: 14 }] }],
+  settle: 0.9,
+  endAfter: 0.5,
+};
+
+const BOUNCY = {
+  hops: [
+    { h: 36, crouch: 0.12, depth: 0.1, g: 2000, hang: 0.15, mood: ["happy", "cheer", null], fx: [{ sound: "correct", vibe: 8 }, { vibe: 12 }] },
+    { h: 21, crouch: 0.05, depth: 0.03, g: 2400, hang: 0, mood: quiet, fx: [null, { vibe: 9 }] },
+    { h: 10, crouch: 0.04, depth: 0.02, g: 2400, hang: 0, mood: [null, null, "happy"], fx: [null, { vibe: 6 }] },
+  ],
+  settle: 0.9,
+  endAfter: 0.5,
+};
+
+// Round clear, with the last cell going green just before the takeoff.
+const CLEAR_JUMP = {
+  delay: 0.3,
+  cues: [
+    [0.01, "watch"],
+    [0.22, "happy"],
+  ],
+  hops: [
+    { h: 42, mood: ["happy", "cheer", "happy"], fx: [null, { vibe: 14 }] },
+    { h: 13, crouch: 0.05, depth: 0.03, mood: quiet, fx: [null, { vibe: 8 }] },
+  ],
+  settle: 0.9,
+  endAfter: 0.7,
+};
+
+function RoundClear2({ Buddy, run, fx, accent }) {
+  const ref = useRef(null);
+  const [mood, setMood] = useRunState(run.n, "idle");
+  const [s, set] = useRunState(run.n, { last: false, clear: false });
+  const [jf, onEvent] = useJumpFx(run.n);
+  useTimeline(run.n, () => [
+    [220, () => (set({ last: true, clear: false }), fx({ vibe: 8, sound: "correct" }))],
+    [470, () => (set({ last: true, clear: true }), fx("clear"))],
+    [2400, () => set({ last: false, clear: false })],
+  ]);
+  useJump(run.n, ref, CLEAR_JUMP, { setMood, fx, onEvent });
+  const pattern = [0, 4, 5, 7];
+  const shown = run.n ? (s.last ? pattern : pattern.slice(0, 3)) : [];
+  const cells = Array.from({ length: 9 }, (_, i) => (shown.includes(i) ? "ok" : "idle"));
+  return (
+    <div className="mo-box">
+      <div className="mo-box-board">
+        <MiniBoard cells={cells} />
+        {s.clear && <span key={run.n} className="mo-board-ring" />}
+        {s.clear && (
+          <span key={`star-${run.n}`} className="mo-stamp">
+            <StarSticker size={42} />
+          </span>
+        )}
+      </div>
+      <div className="mo-box-buddy">
+        <div className="mo-stand">
+          <Shadow key={`shadow-${run.n}`} width={64} />
+          {jf.land > 0 && <Dust key={`d-${run.n}-${jf.land}`} impact={jf.impact} />}
+          <RigFig key={run.n} figRef={ref} Buddy={Buddy} accent={accent} mood={mood} look={s.clear ? undefined : [-3, 0]} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const RECORD_JUMP = {
+  hops: [
+    { h: 62, crouch: 0.2, depth: 0.13, g: 1400, hang: 0.6, arms: [-16, -4], mood: ["happy", "cheer", "cheer"], fx: [null, { vibe: [18, 40, 12] }] },
+    { h: 13, crouch: 0.05, depth: 0.03, mood: quiet, fx: [null, { vibe: 8 }] },
+  ],
+  settle: 1,
+  endAfter: 1.3,
+};
+
+function NewRecord2({ Buddy, run, fx, accent }) {
+  const ref = useRef(null);
+  const [mood, setMood] = useRunState(run.n, "idle");
+  const [on, setOn] = useRunState(run.n, run.n > 0);
+  const [jf, onEvent] = useJumpFx(run.n);
+  useTimeline(run.n, () => [
+    [0, () => fx("record")],
+    [2800, () => setOn(false)],
+  ]);
+  useJump(run.n, ref, RECORD_JUMP, { setMood, fx, onEvent });
+  return (
+    <>
+      {on && <Confetti key={run.n} seed={run.n} />}
+      <Stand runKey={run.n} lift={16}>
+        {jf.land > 0 && <Dust key={`d-${run.n}-${jf.land}`} impact={jf.impact} />}
+        <RigFig key={run.n} figRef={ref} Buddy={Buddy} size={104} accent={accent} mood={mood}>
+          {on && (
+            <span key={`t-${run.n}`} className="mo-trophy">
+              <TrophySticker size={50} />
+            </span>
+          )}
+        </RigFig>
+      </Stand>
+      {on && (
+        <Bubble key={`b-${run.n}`} gold tail="down" className="mo-record-bubble">
+          New best!
+        </Bubble>
+      )}
+    </>
+  );
+}
+
 export const MOTIONS = [
   { code: "M01", name: "Breathe", group: "Idle", blurb: "A slow rise and fall while waiting", loop: true, Stage: Breathe },
   { code: "M02", name: "Glance", group: "Idle", blurb: "Looks around between blinks", loop: true, Stage: Glance },
@@ -547,4 +787,12 @@ export const MOTIONS = [
   { code: "M22", name: "Peek in", group: "Transitions", blurb: "Rises into view on a new screen", haptic: true, every: 4200, Stage: PeekIn },
   { code: "M23", name: "Walk in", group: "Transitions", blurb: "Strolls in, stops, waves", haptic: true, every: 4600, Stage: WalkIn },
   { code: "M24", name: "Sticker slap", group: "Transitions", blurb: "Lifts off the page, slaps down", haptic: true, Stage: Slap },
+  { code: "M25", name: "Boing hop", group: "Reactions", blurb: "Correct tap: crouch, spring, settle", haptic: true, fresh: true, every: 3200, Stage: makeJump(BOING) },
+  { code: "M26", name: "Double hop", group: "Reactions", blurb: "Yay-yay! The second one twirls", haptic: true, fresh: true, every: 3600, Stage: makeJump(DOUBLE) },
+  { code: "M27", name: "Floaty hop", group: "Reactions", blurb: "Hangs up top, drifts down", haptic: true, fresh: true, every: 4000, Stage: makeJump(FLOATY) },
+  { code: "M28", name: "Tuck flip", group: "Reactions", blurb: "Curls up, flips, lands ta-da", haptic: true, fresh: true, every: 3800, Stage: makeJump(TUCK) },
+  { code: "M29", name: "Star jump", group: "Reactions", blurb: "Flings wide at the top, sparkles", haptic: true, fresh: true, every: 3400, Stage: makeJump(STAR, { burst: true }) },
+  { code: "M30", name: "Bouncy", group: "Reactions", blurb: "Three happy bounces, like a spring", haptic: true, fresh: true, every: 3600, Stage: makeJump(BOUNCY) },
+  { code: "M31", name: "Round clear, new jump", group: "In the game", blurb: "Last cell, star stamp, a real jump", haptic: true, fresh: true, every: 4200, Stage: RoundClear2 },
+  { code: "M32", name: "New record, new jump", group: "In the game", blurb: "Trophy up, a big floaty leap", haptic: true, fresh: true, every: 4800, Stage: NewRecord2 },
 ];
