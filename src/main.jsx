@@ -8,6 +8,7 @@ import Picker, { VERSIONS } from "./Picker.jsx";
 const Classic = lazy(() => import("./MemoryGridTrainer.jsx"));
 const APPS = {
   "/classic": Classic,
+  "/lab": lazy(() => import("./lab/Lab.jsx")),
   ...Object.fromEntries(VERSIONS.map((v) => [v.path, lazy(v.load)])),
 };
 

@@ -75,6 +75,27 @@ export default function Picker() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }}>
+        <a
+          href="/lab"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "16px 18px",
+            marginBottom: 8,
+            borderRadius: 22,
+            background: "#5E74C4",
+            color: "#FFFFFF",
+            textDecoration: "none",
+            fontSize: 19,
+            fontWeight: 750,
+            boxShadow: "0 0 0 3px #fff, 0 8px 18px rgba(59,63,81,0.18)",
+          }}
+        >
+          Buddy Lab: rate designs and motions
+          <span aria-hidden="true">→</span>
+        </a>
         <h1 style={{ margin: "0 0 4px", fontSize: 30, fontWeight: 750, letterSpacing: -0.6 }}>Pick a version</h1>
         <p style={{ margin: "0 0 10px", fontSize: 15, color: "#5F6478" }}>
           Three takes on Sticker. Same game and records in each.

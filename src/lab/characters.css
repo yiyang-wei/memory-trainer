@@ -1,0 +1,83 @@
+/* Design-specific styles for lab buddies. Scoped under .lab; classes start with ch-. */
+
+/* B12 · Chameleon without an accent: the body walks through the four exercise colours,
+   to show that in the app it would take the colour of whatever is being played. */
+.lab .ch-cyc {
+  animation: ch-cycle 8s ease-in-out infinite;
+}
+
+.lab .ch-cyc-deep {
+  animation: ch-cycle-deep 8s ease-in-out infinite;
+}
+
+/* Strokes and fills both: limbs and the tail are strokes, the body is a fill. Each
+   element only paints whichever of the two it uses (the other is "none" or white). */
+.lab path.ch-cyc {
+  animation-name: ch-cycle-stroke;
+}
+
+@keyframes ch-cycle {
+  0%,
+  20% {
+    fill: #7fbf9e;
+  }
+  25%,
+  45% {
+    fill: #8ca0db;
+  }
+  50%,
+  70% {
+    fill: #e0aa3e;
+  }
+  75%,
+  95% {
+    fill: #e0778c;
+  }
+  100% {
+    fill: #7fbf9e;
+  }
+}
+
+@keyframes ch-cycle-deep {
+  0%,
+  20% {
+    fill: #5daa84;
+  }
+  25%,
+  45% {
+    fill: #6f86d6;
+  }
+  50%,
+  70% {
+    fill: #c98a1a;
+  }
+  75%,
+  95% {
+    fill: #c95c72;
+  }
+  100% {
+    fill: #5daa84;
+  }
+}
+
+@keyframes ch-cycle-stroke {
+  0%,
+  20% {
+    stroke: #7fbf9e;
+  }
+  25%,
+  45% {
+    stroke: #8ca0db;
+  }
+  50%,
+  70% {
+    stroke: #e0aa3e;
+  }
+  75%,
+  95% {
+    stroke: #e0778c;
+  }
+  100% {
+    stroke: #7fbf9e;
+  }
+}

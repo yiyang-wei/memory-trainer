@@ -75,8 +75,15 @@ directions and Sticker (C) won; round 2 explores three takes on it.
 | `/b` | Chunky (round 1) — pressable keycaps, bouncy motion, a docked game HUD |
 | `/a` | Glossy (round 1) — glass cards, shiny 3D blocks, confetti |
 | `/classic` | The original screen below, unchanged |
+| `/lab` | Buddy Lab — candidate buddy designs (B), faces (F) and motions (M), each rated 1–5 stars |
 
-They share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported
+Round 2 picked Buddy. `/lab` lays out the candidates for its next round, one card per
+code. Ratings are kept in localStorage and, under `npm run dev`, also posted to
+`/__lab/ratings`, a small dev-only middleware in `vite.config.js` that merges them into
+`.lab/ratings.json` (gitignored). A phone on the LAN and the laptop therefore share one
+set of ratings, and the file can be read directly.
+
+The versions share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported
 from the classic component, plus run stats and history), `useNavigation` (screens in
 browser history, so Android's back gesture works), `catalog` (exercise and level facts)
 and `feedback` (synthesized sounds and vibration). Each version under `src/versions/`

@@ -1,0 +1,1086 @@
+/* Motion stages for the lab. Scoped under .lab; every class here starts with mo-.
+   Only transform and opacity animate, so many stages can run at once on a phone. */
+
+/* ---------- Layout ---------- */
+
+.lab .mo-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The stage floor: the buddy stands near the bottom edge. */
+.lab .mo-ground {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.lab .mo-stand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lab .mo-fig {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+}
+
+.lab .mo-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  height: 10px;
+  translate: -50% 0;
+  border-radius: 50%;
+  background: rgba(59, 63, 81, 0.13);
+}
+
+/* Something beside the buddy: a missed cell, the last heart. */
+.lab .mo-side {
+  position: absolute;
+  left: calc(100% + 8px);
+  bottom: 38px;
+  display: block;
+}
+
+/* Board on the left, buddy on the right, at fixed positions so looks can aim. */
+.lab .mo-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 260px;
+  height: 200px;
+  margin: -100px 0 0 -130px;
+}
+
+.lab .mo-box-board {
+  position: absolute;
+  left: 2px;
+  top: 39px;
+}
+
+.lab .mo-box-buddy {
+  position: absolute;
+  left: 140px;
+  top: 44px;
+}
+
+/* Doubled class: .mo-bubble's own position: relative must not win. */
+.lab .mo-bubble.mo-box-bubble {
+  position: absolute;
+  right: 0;
+  top: 4px;
+}
+
+/* A head tilt that eases toward whatever --tilt is set to. */
+.lab .mo-tilt {
+  transform-origin: 50% 92%;
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------- Mini board ---------- */
+
+.lab .mo-board {
+  display: grid;
+  padding: 9px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 0 0 3px #fff, 0 6px 14px rgba(59, 63, 81, 0.1);
+}
+
+/* Cells only ever change colour and mark — never size or position. */
+.lab .mo-cell {
+  position: relative;
+  display: flex;
+  border-radius: 26%;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.lab .mo-cell.ring {
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.lab .mo-mark {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.lab .mo-mark.on {
+  opacity: 1;
+}
+
+/* ---------- Bubbles ---------- */
+
+.lab .mo-bubble {
+  position: relative;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: #fff;
+  color: #3b3f51;
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 0 0 3px #fff, 0 6px 14px rgba(59, 63, 81, 0.12);
+  animation: mo-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.lab .mo-bubble.gold {
+  background: #e0aa3e;
+  color: #fff;
+}
+
+.lab .mo-bubble::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.lab .mo-bubble.tail-left {
+  transform-origin: 0% 50%;
+}
+
+.lab .mo-bubble.tail-left::after {
+  left: -5px;
+  top: 50%;
+  margin-top: -6px;
+}
+
+.lab .mo-bubble.tail-down {
+  transform-origin: 50% 100%;
+}
+
+.lab .mo-bubble.tail-down::after {
+  bottom: -5px;
+  left: 50%;
+  margin-left: -6px;
+}
+
+@keyframes mo-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lab .mo-dots {
+  display: inline-flex;
+  gap: 5px;
+  padding: 5px 2px;
+}
+
+.lab .mo-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #8a90a3;
+  animation: mo-dot 900ms ease-in-out infinite;
+}
+
+.lab .mo-dots i:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.lab .mo-dots i:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes mo-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.45;
+    transform: none;
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.lab .mo-svg {
+  display: block;
+  overflow: visible;
+}
+
+/* ---------- Idle ---------- */
+
+/* M01 · Breathe — the body rises a touch; feet stay planted. */
+.lab .mo-breathe .lb-body {
+  animation: mo-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes mo-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+/* M03 · Sway — the body rocks; the top and arms follow a beat late. */
+.lab .mo-sway {
+  transform-origin: 50% 92%;
+  animation: mo-sway 2.6s ease-in-out infinite alternate;
+}
+
+.lab .mo-sway .lb-top {
+  animation: mo-sway-top 2.6s ease-in-out 350ms infinite alternate backwards;
+}
+
+.lab .mo-sway .lb-arm-l,
+.lab .mo-sway .lb-arm-r {
+  animation: mo-sway-arm 2.6s ease-in-out 200ms infinite alternate backwards;
+}
+
+@keyframes mo-sway {
+  from {
+    transform: rotate(-3.5deg);
+  }
+  to {
+    transform: rotate(3.5deg);
+  }
+}
+
+@keyframes mo-sway-top {
+  from {
+    transform: rotate(-10deg);
+  }
+  to {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes mo-sway-arm {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+/* M04 · Float */
+.lab .mo-float {
+  animation: mo-float 2s ease-in-out infinite alternate;
+}
+
+@keyframes mo-float {
+  from {
+    transform: translateY(-6px);
+  }
+  to {
+    transform: translateY(-18px);
+  }
+}
+
+.lab .mo-float-shadow {
+  animation: mo-float-shadow 2s ease-in-out infinite alternate;
+}
+
+@keyframes mo-float-shadow {
+  from {
+    opacity: 1;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 0.5;
+    transform: scale(0.7);
+  }
+}
+
+/* M05 · Fidget — poses eased in by transition, a jolt by animation. */
+.lab .mo-fidget {
+  transform-origin: 50% 92%;
+  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lab .mo-fidget.stretch {
+  transform: scale(0.96, 1.08);
+}
+
+.lab .mo-fidget.doze {
+  transform: rotate(-7deg) translateY(2px);
+  transition-duration: 1.4s;
+  transition-timing-function: ease-in-out;
+}
+
+.lab .mo-fidget.jolt {
+  animation: mo-jolt 460ms ease;
+}
+
+@keyframes mo-jolt {
+  0% {
+    transform: rotate(-7deg);
+  }
+  30% {
+    transform: translateY(-12px) rotate(4deg);
+  }
+  62% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* ---------- Reactions ---------- */
+
+/* M06 · Hop, with anticipation and a landing squash. */
+.lab .mo-hop {
+  transform-origin: 50% 92%;
+  animation: mo-hop 780ms both;
+}
+
+@keyframes mo-hop {
+  0% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  14% {
+    transform: scale(1.1, 0.88);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  40% {
+    transform: translateY(-40px) scale(0.94, 1.08);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+  }
+  60% {
+    transform: translateY(0) scale(1, 1);
+    animation-timing-function: ease-out;
+  }
+  70% {
+    transform: scale(1.12, 0.86);
+  }
+  85% {
+    transform: scale(0.97, 1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* M07 · Hop, the same arc with no deformation at all. */
+.lab .mo-hop-flat {
+  transform-origin: 50% 92%;
+  animation: mo-hop-flat 780ms both;
+}
+
+@keyframes mo-hop-flat {
+  0% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  14% {
+    transform: translateY(2px);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  40% {
+    transform: translateY(-40px) rotate(-4deg);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+  }
+  60% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  72% {
+    transform: translateY(-5px);
+    animation-timing-function: ease-in;
+  }
+  84% {
+    transform: none;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lab .mo-hop-shadow {
+  animation: mo-jump-shadow 780ms both;
+}
+
+@keyframes mo-jump-shadow {
+  0%,
+  14%,
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+  40% {
+    opacity: 0.5;
+    transform: scale(0.62);
+  }
+}
+
+/* M08 · Wiggle */
+.lab .mo-wiggle {
+  transform-origin: 50% 92%;
+  animation: mo-wiggle 720ms ease-in-out both;
+}
+
+@keyframes mo-wiggle {
+  0%,
+  100% {
+    transform: none;
+  }
+  15% {
+    transform: rotate(-9deg);
+  }
+  32% {
+    transform: rotate(8deg);
+  }
+  49% {
+    transform: rotate(-7deg);
+  }
+  66% {
+    transform: rotate(5deg);
+  }
+  83% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* M09 · Nod — the face dips inside the body (translate composes with the face's own
+   transform attribute), and the body bows slightly. */
+.lab .mo-nod .lb-face {
+  animation: mo-nod-face 420ms ease-in-out;
+}
+
+.lab .mo-nod .lb-body {
+  animation: mo-nod-body 420ms ease-in-out;
+}
+
+@keyframes mo-nod-face {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  45% {
+    translate: -1px 4px;
+  }
+}
+
+@keyframes mo-nod-body {
+  0%,
+  100% {
+    transform: none;
+  }
+  45% {
+    transform: translateY(2px) rotate(-3deg);
+  }
+}
+
+/* M10 · Flip */
+.lab .mo-flip {
+  transform-origin: 50% 55%;
+  animation: mo-flip 920ms both;
+}
+
+@keyframes mo-flip {
+  0% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  12% {
+    transform: translateY(3px);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  48% {
+    transform: translateY(-54px) rotate(-180deg);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.5);
+  }
+  82% {
+    transform: translateY(0) rotate(-360deg);
+    animation-timing-function: ease-out;
+  }
+  91% {
+    transform: translateY(-4px) rotate(-360deg);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+.lab .mo-flip-shadow {
+  animation: mo-flip-shadow 920ms both;
+}
+
+@keyframes mo-flip-shadow {
+  0%,
+  12%,
+  82%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+  48% {
+    opacity: 0.45;
+    transform: scale(0.55);
+  }
+}
+
+/* M11 · Oops shake — the body shakes "no" on planted feet. */
+.lab .mo-shake .lb-body {
+  animation: mo-headshake 560ms ease-out both;
+}
+
+@keyframes mo-headshake {
+  0%,
+  100% {
+    transform: none;
+  }
+  14% {
+    transform: rotate(-8deg);
+  }
+  30% {
+    transform: rotate(7deg);
+  }
+  46% {
+    transform: rotate(-6deg);
+  }
+  62% {
+    transform: rotate(4deg);
+  }
+  80% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* M12 · Jelly — the body squashes and settles; arms and feet stay put. */
+.lab .mo-jelly .lb-body {
+  animation: mo-jelly 780ms ease-out both;
+}
+
+@keyframes mo-jelly {
+  0%,
+  100% {
+    transform: none;
+  }
+  14% {
+    transform: scale(1.14, 0.86);
+  }
+  30% {
+    transform: scale(0.9, 1.1);
+  }
+  46% {
+    transform: scale(1.07, 0.94);
+  }
+  62% {
+    transform: scale(0.96, 1.04);
+  }
+  80% {
+    transform: scale(1.02, 0.98);
+  }
+}
+
+/* M13 · Hearts */
+.lab .mo-bounce {
+  transform-origin: 50% 92%;
+  animation: mo-bounce 620ms both;
+}
+
+@keyframes mo-bounce {
+  0% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  30% {
+    transform: translateY(-14px);
+    animation-timing-function: ease-in;
+  }
+  58% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  76% {
+    transform: translateY(-3px);
+    animation-timing-function: ease-in;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lab .mo-heart {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  margin: -13px 0 0 -13px;
+  animation: mo-heart 1300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes mo-heart {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  16% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(calc(var(--x) * 0.45), calc(var(--y) * 0.6)) rotate(-10deg) scale(1);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), var(--y)) rotate(8deg) scale(0.9);
+  }
+}
+
+/* M14 · Tremble — a short nervous shiver every couple of seconds. */
+.lab .mo-tremble {
+  animation: mo-tremble 2.4s linear infinite;
+}
+
+@keyframes mo-tremble {
+  0%,
+  28%,
+  100% {
+    transform: none;
+  }
+  4% {
+    transform: translateX(-1.6px);
+  }
+  8% {
+    transform: translateX(1.6px);
+  }
+  12% {
+    transform: translateX(-1.6px);
+  }
+  16% {
+    transform: translateX(1.4px);
+  }
+  20% {
+    transform: translateX(-1px);
+  }
+  24% {
+    transform: translateX(1px);
+  }
+}
+
+.lab .mo-lastheart {
+  animation: mo-beat 1.2s ease-in-out infinite;
+}
+
+@keyframes mo-beat {
+  0%,
+  42%,
+  100% {
+    transform: none;
+  }
+  10% {
+    transform: scale(1.2);
+  }
+  20% {
+    transform: none;
+  }
+  30% {
+    transform: scale(1.12);
+  }
+}
+
+/* ---------- In the game ---------- */
+
+/* M17 · Countdown sign */
+.lab .mo-sign {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  width: 60px;
+  height: 60px;
+  margin-left: -30px;
+  border-radius: 18px;
+  background: #fff;
+  color: #3b3f51;
+  font-size: 34px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px #fff, 0 8px 16px rgba(59, 63, 81, 0.16);
+  animation: mo-sign 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.lab .mo-sign.go {
+  width: 78px;
+  margin-left: -39px;
+  background: #5e74c4;
+  color: #fff;
+  font-size: 26px;
+}
+
+@keyframes mo-sign {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-25deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-5deg);
+  }
+}
+
+/* M18 · Round clear — a ring around the board (not the cells) and a star stamp. */
+.lab .mo-board-ring {
+  position: absolute;
+  inset: -7px;
+  border: 4px solid #7fbf9e;
+  border-radius: 22px;
+  pointer-events: none;
+  animation: mo-ring 760ms ease-out both;
+}
+
+@keyframes mo-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+.lab .mo-stamp {
+  position: absolute;
+  right: -16px;
+  top: -18px;
+  animation: mo-stamp 480ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes mo-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(2.2) rotate(30deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.9) rotate(-14deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-10deg);
+  }
+}
+
+/* M19 · New record */
+.lab .mo-trophy {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 14px);
+  margin-left: -25px;
+  z-index: 1;
+  animation: mo-trophy 640ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms both, mo-trophy-hold 900ms ease-in-out 760ms infinite alternate;
+}
+
+@keyframes mo-trophy {
+  from {
+    opacity: 0;
+    transform: translateY(44px) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-6deg);
+  }
+}
+
+@keyframes mo-trophy-hold {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: translateY(-3px) rotate(6deg);
+  }
+}
+
+.lab .mo-bubble.mo-record-bubble {
+  position: absolute;
+  left: 14px;
+  top: 16px;
+  z-index: 4;
+}
+
+.lab .mo-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lab .mo-confetti span {
+  position: absolute;
+  top: -16px;
+  box-shadow: 0 0 0 2px #fff;
+  animation-name: mo-fall;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes mo-fall {
+  from {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  to {
+    opacity: 0.9;
+    transform: translate(var(--dx), 270px) rotate(var(--rot));
+  }
+}
+
+/* M20 · Game over */
+.lab .mo-hearts-row {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: 6px;
+}
+
+.lab .mo-heart-slot {
+  position: relative;
+  display: block;
+}
+
+.lab .mo-heart-fill {
+  position: absolute;
+  inset: 0;
+  transition: opacity 320ms ease, transform 420ms cubic-bezier(0.5, 0, 0.8, 0.5);
+}
+
+.lab .mo-heart-fill.gone {
+  opacity: 0;
+  transform: translateY(14px) rotate(14deg) scale(0.7);
+}
+
+.lab .mo-over-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-right: 20px;
+}
+
+.lab .mo-over-bubble {
+  opacity: 0;
+  transform: scale(0.6);
+  animation: none;
+  transition: opacity 240ms ease, transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lab .mo-over-bubble.on {
+  opacity: 1;
+  transform: none;
+}
+
+.lab .mo-wave .lb-arm-r {
+  animation: mo-wave 460ms ease-in-out 4 alternate;
+}
+
+@keyframes mo-wave {
+  from {
+    transform: rotate(12deg);
+  }
+  to {
+    transform: rotate(-18deg);
+  }
+}
+
+/* M21 · Speech bubble */
+.lab .mo-speech {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.lab .mo-speech-slot {
+  width: 128px;
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- Transitions ---------- */
+
+/* M22 · Peek in — rises to eye level, looks around, then pops up. */
+.lab .mo-peek {
+  animation: mo-peek 1.5s both;
+}
+
+@keyframes mo-peek {
+  0% {
+    transform: translateY(105%);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  30%,
+  62% {
+    transform: translateY(31%);
+    animation-timing-function: cubic-bezier(0.3, 1.5, 0.6, 1);
+  }
+  82% {
+    transform: translateY(-4%);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+/* M23 · Walk in */
+.lab .mo-walk {
+  animation: mo-walk 1.3s both;
+}
+
+/* An even pace, easing only into the stop. */
+@keyframes mo-walk {
+  0% {
+    transform: translateX(-230px);
+    animation-timing-function: linear;
+  }
+  78% {
+    transform: translateX(-24px);
+    animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lab .mo-step {
+  transform-origin: 50% 92%;
+  animation: mo-step 325ms ease-in-out 4;
+}
+
+@keyframes mo-step {
+  0%,
+  50%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-6px) rotate(-5deg);
+  }
+  75% {
+    transform: translateY(-6px) rotate(5deg);
+  }
+}
+
+/* M24 · Sticker slap — lifted off the page, then slapped down with a puff. */
+.lab .mo-slap {
+  transform-origin: 50% 60%;
+  animation: mo-slap 900ms both;
+}
+
+@keyframes mo-slap {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.4) rotate(-16deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  52% {
+    transform: translateY(-24px) scale(1.32) rotate(-11deg);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.4);
+  }
+  70% {
+    transform: translateY(0) scale(0.95) rotate(2deg);
+    animation-timing-function: ease-out;
+  }
+  84% {
+    transform: scale(1.03) rotate(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lab .mo-slap-shadow {
+  animation: mo-slap-shadow 900ms both;
+}
+
+@keyframes mo-slap-shadow {
+  0% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+  52% {
+    opacity: 0.35;
+    transform: scale(1.5);
+  }
+  70%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lab .mo-puffs {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+}
+
+.lab .mo-puffs i {
+  position: absolute;
+  left: -5px;
+  top: -2px;
+  width: 10px;
+  height: 4px;
+  border-radius: 2px;
+  background: #a898e0;
+  animation: mo-puff 440ms ease-out 640ms both;
+}
+
+@keyframes mo-puff {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(34px) scaleX(0.4);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(62px);
+  }
+}

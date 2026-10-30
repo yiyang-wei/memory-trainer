@@ -1,10 +1,74 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Dev only: the /lab review page saves star ratings here, so ratings made on a phone over
+// the LAN land in one file on the dev machine. Entries are merged per item code, newest
+// wins, and anything that isn't a small well-formed rating is dropped.
+function labRatings() {
+  const file = path.resolve(".lab/ratings.json");
+  const read = () => {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      return {};
+    }
+  };
+  const valid = (code, r) =>
+    /^[A-Z]\d{2}$/.test(code) &&
+    r &&
+    Number.isInteger(r.stars) &&
+    r.stars >= 0 &&
+    r.stars <= 5 &&
+    typeof r.note === "string" &&
+    r.note.length <= 600 &&
+    Number.isFinite(r.t);
+  return {
+    name: "lab-ratings",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/__lab/ratings", (req, res) => {
+        const send = (status, obj) => {
+          res.statusCode = status;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(obj));
+        };
+        if (req.method === "GET") return send(200, read());
+        if (req.method !== "POST") return send(405, {});
+        let body = "";
+        req.on("data", (chunk) => {
+          body += chunk;
+          if (body.length > 100_000) req.destroy();
+        });
+        req.on("end", () => {
+          let incoming;
+          try {
+            incoming = JSON.parse(body || "{}");
+          } catch {
+            return send(400, {});
+          }
+          const merged = read();
+          for (const [code, r] of Object.entries(incoming)) {
+            if (!valid(code, r)) continue;
+            if (!merged[code] || r.t > (merged[code].t || 0)) {
+              merged[code] = { stars: r.stars, note: r.note, t: r.t };
+            }
+          }
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, JSON.stringify(merged, null, 2));
+          send(200, merged);
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    labRatings(),
     VitePWA({
       // The manifest stays hand-maintained in public/, so the plugin only builds the
       // service worker. Workbox stamps the hashed asset names into the precache list at

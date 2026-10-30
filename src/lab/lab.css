@@ -1,0 +1,610 @@
+/* Buddy Lab — a review page for buddy designs, faces and motions. Sticker look to match
+   C3 · Buddy: dotted paper, white die-cut cards. Everything is scoped under .lab. */
+
+.lab {
+  --ink: #3b3f51;
+  --muted: #5f6478;
+  --faint: #8a90a3;
+  --bg: #eef0f6;
+  --accent: #8ca0db;
+  --accent-deep: #5e74c4;
+  --gold: #e0aa3e;
+  --gold-tint: #fbf1dc;
+  --line: rgba(59, 63, 81, 0.08);
+
+  min-height: 100dvh;
+  color: var(--ink);
+  font-family: "Bricolage Grotesque Variable", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  background-color: var(--bg);
+  background-image: radial-gradient(rgba(59, 63, 81, 0.09) 1.3px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+
+:where(.lab) *,
+:where(.lab) *::before,
+:where(.lab) *::after {
+  box-sizing: border-box;
+}
+
+:where(.lab) button {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* ---------- Top bar ---------- */
+
+.lab-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 12px max(16px, calc((100% - 1180px) / 2)) 10px;
+  background: rgba(238, 240, 246, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lab-top h1 {
+  margin: 0 0 0 2px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+
+.lab-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 21px;
+  background: #fff;
+  color: var(--faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px #fff, 0 4px 10px rgba(59, 63, 81, 0.1);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.lab-icon.on,
+a.lab-icon {
+  color: var(--ink);
+}
+
+/* An off toggle reads as struck out, not just grey. */
+.lab-icon[aria-pressed="false"] {
+  color: #b9bfcd;
+  box-shadow: 0 0 0 3px #fff, 0 2px 6px rgba(59, 63, 81, 0.06);
+}
+
+.lab-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--gold-tint);
+  color: #8a5a0e;
+  font-size: 14.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-nav {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lab-nav a {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.lab-nav a span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-filter {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.lab-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-deep);
+}
+
+/* ---------- Sections ---------- */
+
+.lab-main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 8px 16px 40px;
+}
+
+.lab-section {
+  scroll-margin-top: 112px;
+  padding-top: 18px;
+}
+
+.lab-section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 2px 12px;
+}
+
+.lab-section h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+}
+
+.lab-section p {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.lab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+
+/* ---------- Buddy picker (faces and motions) ---------- */
+
+.lab-picker {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 4px 12px;
+  margin: 0 -4px;
+  scrollbar-width: none;
+}
+
+.lab-picker button {
+  flex-shrink: 0;
+  width: 62px;
+  padding: 6px 0 5px;
+  border: none;
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(59, 63, 81, 0.06);
+}
+
+.lab-picker button.on {
+  color: var(--accent-deep);
+  box-shadow: 0 0 0 3px var(--accent), 0 4px 10px rgba(59, 63, 81, 0.12);
+}
+
+/* ---------- Cards ---------- */
+
+.lab-card {
+  scroll-margin-top: 120px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 0 0 4px #fff, 0 8px 18px rgba(59, 63, 81, 0.1);
+  overflow: hidden;
+}
+
+.lab-card.rated {
+  box-shadow: 0 0 0 4px #fff, 0 0 0 6px rgba(224, 170, 62, 0.45), 0 8px 18px rgba(59, 63, 81, 0.1);
+}
+
+.lab-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+}
+
+.lab-code {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-card-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lab-card-name {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.lab-card-blurb {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.lab-group {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #f1f3f8;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: var(--muted);
+}
+
+.lab-stage {
+  position: relative;
+  height: 236px;
+  margin: 0 12px;
+  border-radius: 18px;
+  background: #f4f6fb;
+  background-image: radial-gradient(rgba(59, 63, 81, 0.07) 1.2px, transparent 1.4px);
+  background-size: 16px 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lab-stage[role="button"] {
+  cursor: pointer;
+}
+
+.lab-play {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--accent-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2px;
+  box-shadow: 0 2px 8px rgba(59, 63, 81, 0.14);
+  pointer-events: none;
+}
+
+.lab-hero {
+  position: relative;
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lab-hero.static {
+  cursor: default;
+}
+
+.lab-hero .lb-buddy {
+  filter: drop-shadow(0 3px 4px rgba(59, 63, 81, 0.18));
+}
+
+.lab-hero-in {
+  display: block;
+  animation: lab-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes lab-pop {
+  from {
+    transform: scale(0.92);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.lab-mood-tag {
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 11.5px;
+  font-weight: 750;
+  color: var(--muted);
+}
+
+.lab-strip {
+  display: flex;
+  gap: 6px;
+}
+
+.lab-strip span {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lab-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 10px 8px;
+  flex-wrap: wrap;
+}
+
+.lab-stars {
+  display: flex;
+  flex: 1;
+}
+
+.lab-stars button {
+  width: 46px;
+  height: 46px;
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cdd2df;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lab-stars button.on {
+  color: var(--gold);
+}
+
+.lab-stars button:active {
+  transform: scale(0.85);
+}
+
+.lab-note-btn {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 14px;
+  background: #f1f3f8;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lab-note {
+  flex-basis: 100%;
+  width: 100%;
+  margin: 0 2px;
+  padding: 10px 12px;
+  border: 2px solid #e3e6ef;
+  border-radius: 14px;
+  background: #fafbfd;
+  font: 600 15px/1.35 "Bricolage Grotesque Variable", system-ui, sans-serif;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.lab-note:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---------- Footer ---------- */
+
+.lab-end {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.lab-sync {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.lab-sync.offline {
+  color: #a8435b;
+}
+
+.lab-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.lab-copy {
+  min-height: 52px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 18px;
+  background: var(--accent-deep);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px #fff, 0 8px 18px rgba(59, 63, 81, 0.18);
+}
+
+/* ---------- Buddy rig defaults (shared by every design and motion) ---------- */
+
+.lab .lb-buddy {
+  display: block;
+  overflow: visible;
+}
+
+.lab .lb-all,
+.lab .lb-body,
+.lab .lb-top,
+.lab .lb-arm-l,
+.lab .lb-arm-r,
+.lab .lb-feet {
+  transform-box: view-box;
+}
+
+.lab .lb-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lb-blink 4.6s infinite;
+}
+
+@keyframes lb-blink {
+  0%,
+  91%,
+  97%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.12);
+  }
+}
+
+.lab .lb-sweat {
+  animation: lb-sweat 900ms ease-in-out infinite alternate;
+}
+
+@keyframes lb-sweat {
+  from {
+    transform: translateY(-1px);
+  }
+  to {
+    transform: translateY(2px);
+  }
+}
+
+.lab .lb-sparkles path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lb-twinkle 1.4s ease-in-out infinite;
+}
+
+.lab .lb-sparkles path:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.lab .lb-sparkles path:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes lb-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.lab .lb-zzz text {
+  animation: lb-zzz 2.4s ease-in-out infinite;
+}
+
+.lab .lb-zzz text:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+@keyframes lb-zzz {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab *,
+  .lab *::before,
+  .lab *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
