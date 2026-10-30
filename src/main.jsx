@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import Picker, { VERSIONS } from "./Picker.jsx";
 
-// Three redesign candidates live side by side, one path each, so they can be compared
+// Redesign candidates live side by side, one path each, so they can be compared
 // on a phone without rebuilding. "/" is the picker; "/classic" is the original screen.
 const Classic = lazy(() => import("./MemoryGridTrainer.jsx"));
 const APPS = {

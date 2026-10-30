@@ -62,14 +62,18 @@ its pattern every round, so nothing needs carrying across a resize.
 
 ## Redesign candidates
 
-Three playful redesigns are being compared side by side, one URL each:
+Playful redesigns are compared side by side, one URL each. Round 1 tried three
+directions and Sticker (C) won; round 2 explores three takes on it.
 
 | Path | Version |
 | --- | --- |
 | `/` | Version picker |
-| `/a` | Glossy — glass cards, shiny 3D blocks, confetti |
-| `/b` | Chunky — pressable keycaps, bouncy motion, a docked game HUD |
-| `/c` | Sticker — die-cut stickers on dotted paper; results slide up over the answer |
+| `/c1` | Tidy — Sticker, calmer and straighter; records fill a sticker album |
+| `/c2` | Scrapbook — paper, washi tape, rubber-stamp records, handwritten notes |
+| `/c3` | Buddy — Sticker with a small mascot who carries the cues and reacts |
+| `/c` | Sticker (round 1) — die-cut stickers on dotted paper; results slide up over the answer |
+| `/b` | Chunky (round 1) — pressable keycaps, bouncy motion, a docked game HUD |
+| `/a` | Glossy (round 1) — glass cards, shiny 3D blocks, confetti |
 | `/classic` | The original screen below, unchanged |
 
 They share one engine in `src/engine/`: `useMemoryGame` (the round state machine, ported

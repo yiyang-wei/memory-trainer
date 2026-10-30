@@ -1,22 +1,35 @@
 import React from "react";
 import "@fontsource-variable/bricolage-grotesque";
 
+// Round 2 goes deeper into C, the round-1 favourite; round 1 stays reachable for
+// comparison.
 export const VERSIONS = [
   {
-    path: "/a",
-    letter: "A",
-    name: "Glossy",
-    blurb: "Soft glass cards, shiny 3D blocks, confetti.",
+    path: "/c1",
+    letter: "C1",
+    name: "Tidy",
+    blurb: "Sticker, calmer and cleaner. Records fill a sticker album.",
     colors: ["#8CA0DB", "#7FBF9E", "#E0AA3E", "#E0778C"],
-    load: () => import("./versions/glossy/App.jsx"),
+    round: 2,
+    load: () => import("./versions/tidy/App.jsx"),
   },
   {
-    path: "/b",
-    letter: "B",
-    name: "Chunky",
-    blurb: "Big pressable buttons and bouncy tiles.",
-    colors: ["#6F86D6", "#5DB38A", "#E3A52F", "#E2667F"],
-    load: () => import("./versions/chunky/App.jsx"),
+    path: "/c2",
+    letter: "C2",
+    name: "Scrapbook",
+    blurb: "Paper, washi tape, rubber stamps and handwritten notes.",
+    colors: ["#8CA0DB", "#7FBF9E", "#E0AA3E", "#E0778C"],
+    round: 2,
+    load: () => import("./versions/scrapbook/App.jsx"),
+  },
+  {
+    path: "/c3",
+    letter: "C3",
+    name: "Buddy",
+    blurb: "Sticker style with a little buddy who plays along.",
+    colors: ["#8CA0DB", "#7FBF9E", "#E0AA3E", "#E0778C"],
+    round: 2,
+    load: () => import("./versions/buddy/App.jsx"),
   },
   {
     path: "/c",
@@ -24,7 +37,26 @@ export const VERSIONS = [
     name: "Sticker",
     blurb: "Flat sticker shapes, doodles and wiggles.",
     colors: ["#8CA0DB", "#7FBF9E", "#E0AA3E", "#E0778C"],
+    round: 1,
     load: () => import("./versions/sticker/App.jsx"),
+  },
+  {
+    path: "/b",
+    letter: "B",
+    name: "Chunky",
+    blurb: "Big pressable buttons and bouncy tiles.",
+    colors: ["#6F86D6", "#5DB38A", "#E3A52F", "#E2667F"],
+    round: 1,
+    load: () => import("./versions/chunky/App.jsx"),
+  },
+  {
+    path: "/a",
+    letter: "A",
+    name: "Glossy",
+    blurb: "Soft glass cards, shiny 3D blocks, confetti.",
+    colors: ["#8CA0DB", "#7FBF9E", "#E0AA3E", "#E0778C"],
+    round: 1,
+    load: () => import("./versions/glossy/App.jsx"),
   },
 ];
 
@@ -45,9 +77,9 @@ export default function Picker() {
       <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }}>
         <h1 style={{ margin: "0 0 4px", fontSize: 30, fontWeight: 750, letterSpacing: -0.6 }}>Pick a version</h1>
         <p style={{ margin: "0 0 10px", fontSize: 15, color: "#5F6478" }}>
-          Same game and records in each. Try them all.
+          Three takes on Sticker. Same game and records in each.
         </p>
-        {VERSIONS.map((v) => (
+        {VERSIONS.filter((v) => v.round === 2).map((v) => (
           <a
             key={v.path}
             href={v.path}
@@ -86,6 +118,29 @@ export default function Picker() {
             </span>
           </a>
         ))}
+        <h2 style={{ margin: "18px 0 0", fontSize: 15, fontWeight: 700, color: "#5F6478" }}>Earlier</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          {VERSIONS.filter((v) => v.round === 1).map((v) => (
+            <a
+              key={v.path}
+              href={v.path}
+              style={{
+                flex: 1,
+                padding: "12px 6px",
+                borderRadius: 18,
+                background: "#FFFFFF",
+                color: "inherit",
+                textDecoration: "none",
+                textAlign: "center",
+                fontSize: 15,
+                fontWeight: 700,
+                boxShadow: "0 2px 10px rgba(59,63,81,0.06)",
+              }}
+            >
+              {v.letter} · {v.name}
+            </a>
+          ))}
+        </div>
         <a
           href="/classic"
           style={{ alignSelf: "center", marginTop: 8, padding: 12, color: "#5F6478", fontSize: 15, fontWeight: 600 }}
