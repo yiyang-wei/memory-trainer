@@ -1,19 +1,18 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-import Picker, { VERSIONS } from "./Picker.jsx";
+import DEV_APPS from "./devApps.js";
 
-// Redesign candidates live side by side, one path each, so they can be compared
-// on a phone without rebuilding. "/" is the picker; "/classic" is the original screen.
-const Classic = lazy(() => import("./MemoryGridTrainer.jsx"));
+// "/" is the Buddy version, the one that ships, and "/classic" keeps the original screen.
+// Under `npm run dev` the other redesign candidates and the Buddy Lab have paths too.
+const Buddy = lazy(() => import("./versions/buddy/App.jsx"));
 const APPS = {
-  "/classic": Classic,
-  "/lab": lazy(() => import("./lab/Lab.jsx")),
-  ...Object.fromEntries(VERSIONS.map((v) => [v.path, lazy(v.load)])),
+  "/classic": lazy(() => import("./MemoryGridTrainer.jsx")),
+  ...DEV_APPS,
 };
 
 const path = window.location.pathname.replace(/\/+$/, "") || "/";
-const App = APPS[path] || Picker;
+const App = APPS[path] || Buddy;
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

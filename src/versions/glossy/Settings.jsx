@@ -48,7 +48,7 @@ export default function SettingsScreen({ g, onHelp }) {
       </section>
 
       <section className="gl-card gl-rows">
-        <a className="gl-set-link" href="/">
+        <a className="gl-set-link" href="/versions">
           <span className="gl-row-icon" style={{ background: "#ECE8FA", color: "#5B49A8" }}>
             <ArrowLeftRight size={18} strokeWidth={2.4} />
           </span>
@@ -59,7 +59,7 @@ export default function SettingsScreen({ g, onHelp }) {
           <span className="gl-row-icon" style={{ background: "#FBF1DC", color: "#8A5A0E" }}>
             <History size={18} strokeWidth={2.4} />
           </span>
-          <span style={{ flex: 1 }}>Today's version</span>
+          <span style={{ flex: 1 }}>Classic version</span>
           <ChevronRight size={20} color="#8A90A3" />
         </a>
       </section>

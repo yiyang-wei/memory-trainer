@@ -30,7 +30,6 @@ export default function BuddyApp() {
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", "#EEF0F6");
-    document.title = "Memory Trainer · Buddy";
   }, []);
 
   // The level an exercise opens on: whatever is already selected for it, else the most

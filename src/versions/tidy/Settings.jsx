@@ -67,8 +67,8 @@ export default function SettingsScreen({ g, onHelp }) {
       </section>
 
       <section className="td-sticker td-card td-rise" style={{ "--delay": "120ms" }}>
-        <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/" />
-        <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Today's version" href="/classic" />
+        <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/versions" />
+        <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Classic version" href="/classic" />
       </section>
     </main>
   );

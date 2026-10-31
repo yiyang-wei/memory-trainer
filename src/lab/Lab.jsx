@@ -462,7 +462,7 @@ export default function Lab() {
             {copied ? <Check size={19} strokeWidth={2.6} /> : <Copy size={19} strokeWidth={2.4} />}
             {copied ? "Copied" : "Copy my ratings"}
           </button>
-          <a href="/" className="lab-back">
+          <a href="/versions" className="lab-back">
             <ArrowLeft size={17} strokeWidth={2.5} />
             All versions
           </a>

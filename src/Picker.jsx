@@ -166,7 +166,7 @@ export default function Picker() {
           href="/classic"
           style={{ alignSelf: "center", marginTop: 8, padding: 12, color: "#5F6478", fontSize: 15, fontWeight: 600 }}
         >
-          Today's version
+          Classic version
         </a>
       </div>
     </div>

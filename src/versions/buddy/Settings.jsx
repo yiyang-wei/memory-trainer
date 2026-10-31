@@ -104,10 +104,13 @@ export default function SettingsScreen({ g, onHelp }) {
         <LinkRow icon={<BookOpen size={19} strokeWidth={2.4} />} bg="#E1F2E9" fg="#2A6E4F" label="How to play" onClick={onHelp} />
       </section>
 
-      <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.4deg", "--delay": "180ms" }}>
-        <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/" />
-        <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Today's version" href="/classic" />
-      </section>
+      {/* The other versions are only served by the dev server. */}
+      {import.meta.env.DEV && (
+        <section className="bd-sticker bd-card bd-slap" style={{ "--tilt": "-0.4deg", "--delay": "180ms" }}>
+          <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/versions" />
+          <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Classic version" href="/classic" />
+        </section>
+      )}
     </main>
   );
 }

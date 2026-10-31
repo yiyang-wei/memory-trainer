@@ -65,10 +65,25 @@ function labRatings() {
   };
 }
 
+// Build only: src/devApps.js routes the other redesign candidates and the Buddy Lab, which
+// ship nowhere. Loading it as an empty table keeps the build from following their imports
+// at all; an `import.meta.env.DEV` branch would still emit their fonts into dist, where the
+// service worker would precache them.
+function devOnlyApps() {
+  const file = path.resolve("src/devApps.js");
+  return {
+    name: "dev-only-apps",
+    apply: "build",
+    enforce: "pre",
+    load: (id) => (id === file ? "export default {};" : null),
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
     labRatings(),
+    devOnlyApps(),
     VitePWA({
       // The manifest stays hand-maintained in public/, so the plugin only builds the
       // service worker. Workbox stamps the hashed asset names into the precache list at

@@ -59,7 +59,7 @@ export default function SettingsScreen({ g, onHelp }) {
       </section>
 
       <section className="ck-card ck-rows ck-in" style={{ "--i": 3 }}>
-        <a className="ck-set-link" href="/">
+        <a className="ck-set-link" href="/versions">
           <Icon bg="#9A87DB" edge="#7562BE">
             <ArrowLeftRight size={20} strokeWidth={2.6} />
           </Icon>
@@ -70,7 +70,7 @@ export default function SettingsScreen({ g, onHelp }) {
           <Icon bg="#E3A52F" edge="#B9821A">
             <History size={20} strokeWidth={2.6} />
           </Icon>
-          <span style={{ flex: 1 }}>Today's version</span>
+          <span style={{ flex: 1 }}>Classic version</span>
           <ChevronRight size={22} color="#8A90A3" strokeWidth={2.6} />
         </a>
       </section>

@@ -69,8 +69,8 @@ export default function SettingsScreen({ g, onHelp }) {
 
       <section className="sb-card sb-set-card sb-place" style={{ "--tilt": "-0.4deg", "--delay": "120ms" }}>
         <Tape color={THEME.free.main} pattern="plain" width={50} angle={3} style={{ top: -10, right: 48 }} />
-        <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/" />
-        <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Today's version" href="/classic" />
+        <LinkRow icon={<ArrowLeftRight size={19} strokeWidth={2.4} />} bg="#ECE8FA" fg="#5B49A8" label="Switch version" href="/versions" />
+        <LinkRow icon={<History size={19} strokeWidth={2.4} />} bg="#FBF1DC" fg="#8A5A0E" label="Classic version" href="/classic" />
       </section>
     </main>
   );
