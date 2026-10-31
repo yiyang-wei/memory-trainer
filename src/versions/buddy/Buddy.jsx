@@ -376,7 +376,7 @@ const BURST = [
 // Sparkles flung out at the top of a star jump.
 function Burst() {
   return (
-    <span className="bd-burst" aria-hidden="true">
+    <span className="bd-sparks" aria-hidden="true">
       {BURST.map(([a, c]) => (
         <svg key={a} viewBox="-8 -8 16 16" width="16" height="16" style={{ "--a": `${a}deg` }}>
           <path d={SPARK} fill={c} stroke="#fff" strokeWidth="2.4" strokeLinejoin="round" paintOrder="stroke" />
