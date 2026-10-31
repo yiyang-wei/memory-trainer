@@ -169,16 +169,19 @@ next launch rather than stranding them on a cached build.
 
 ## Icons
 
-`public/icon.svg` is the design source. The PNGs the manifest and iOS need are generated
+`public/icon.svg` is the design source: today's four-tile mark with Puff, the Buddy
+version's ghost, in place of one tile. The PNGs the manifest and iOS need are generated
 from it:
 
 ```sh
-npm run icons      # requires python3 + Pillow
+npm run icons      # requires python3, cairosvg and Pillow
 ```
 
 This writes `apple-touch-icon.png` (opaque — iOS composites transparency onto black),
-`icon-192.png`, `icon-512.png`, and `icon-maskable-512.png` (full-bleed, mark shrunk into
-the central safe zone). Commit the regenerated PNGs alongside any change to the SVG.
+`icon-192.png`, `icon-512.png`, and `icon-maskable-512.png` (full-bleed, with the art at
+its unscaled size inside the central safe zone). The script finds the card and the art in
+the SVG by their ids, `#card` and `#art`. Commit the regenerated PNGs alongside any change
+to the SVG.
 
 ## Persistence
 
